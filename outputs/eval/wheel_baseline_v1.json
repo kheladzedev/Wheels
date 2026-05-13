@@ -1,0 +1,439 @@
+{
+  "model": "runs/pose/wheel_baseline_v1/weights/best.pt",
+  "data": "configs/pose_dataset.yaml",
+  "split": "val",
+  "device": "cpu",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 44,
+    "pred_wheels_above_conf": 88,
+    "matched": 37,
+    "false_negatives": 7,
+    "false_positives": 51,
+    "images": 80
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 9.911091530624102,
+      "mean": 13.984822233813015,
+      "p95": 24.965383069078534,
+      "p99": 95.26375378123552,
+      "n": 37
+    },
+    "point_b": {
+      "median": 9.47463385554033,
+      "mean": 10.836019311517843,
+      "p95": 25.610707751918117,
+      "p99": 31.964907680217753,
+      "n": 37
+    },
+    "point_c_disc_bottom": {
+      "median": 13.140550430770391,
+      "mean": 17.423165786224207,
+      "p95": 63.161596281405686,
+      "p99": 65.09826727857467,
+      "n": 37
+    }
+  },
+  "oks": {
+    "mean": 0.7304899521906475,
+    "n": 37
+  },
+  "rates": {
+    "false_negative_rate": 0.1590909090909091,
+    "false_positive_rate": 0.5795454545454546
+  },
+  "metrics_bbox": {
+    "mAP50": 0.593382269503546,
+    "mAP50_95": 0.3922408649500114
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 7.448779410086193,
+            "mean": 7.989807584555728,
+            "p95": 11.314587889557801,
+            "p99": 11.396422249595394,
+            "n": 7
+          },
+          "point_b": {
+            "median": 3.807566843382124,
+            "mean": 5.0494018913417715,
+            "p95": 11.59957306605524,
+            "p99": 13.825963801035755,
+            "n": 7
+          },
+          "point_c_disc_bottom": {
+            "median": 5.527446537721837,
+            "mean": 7.182781218000891,
+            "p95": 15.245260758021264,
+            "p99": 16.641989226596735,
+            "n": 7
+          }
+        },
+        "oks": {
+          "mean": 0.5888576943116529,
+          "n": 7
+        },
+        "n_matched": 7
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 10.624764680433296,
+            "mean": 15.383658985306381,
+            "p95": 26.457102401288438,
+            "p99": 102.57970824482523,
+            "n": 30
+          },
+          "point_b": {
+            "median": 10.885074505576956,
+            "mean": 12.186230042892257,
+            "p95": 28.273251719360147,
+            "p99": 31.994262305515015,
+            "n": 30
+          },
+          "point_c_disc_bottom": {
+            "median": 14.17689931413641,
+            "mean": 19.81258885214298,
+            "p95": 63.658171026382185,
+            "p99": 65.1859469826459,
+            "n": 30
+          }
+        },
+        "oks": {
+          "mean": 0.7635374790290794,
+          "n": 30
+        },
+        "n_matched": 30
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 9.911091530624102,
+            "mean": 13.984822233813015,
+            "p95": 24.965383069078534,
+            "p99": 95.26375378123552,
+            "n": 37
+          },
+          "point_b": {
+            "median": 9.47463385554033,
+            "mean": 10.836019311517843,
+            "p95": 25.610707751918117,
+            "p99": 31.964907680217753,
+            "n": 37
+          },
+          "point_c_disc_bottom": {
+            "median": 13.140550430770391,
+            "mean": 17.423165786224207,
+            "p95": 63.161596281405686,
+            "p99": 65.09826727857467,
+            "n": 37
+          }
+        },
+        "oks": {
+          "mean": 0.7304899521906475,
+          "n": 37
+        },
+        "n_matched": 37
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0356_TOYOTA_CAMRY_XV70_China_24.jpg",
+      "score_px": 68.23641468175956,
+      "oks": 0.29827643442688934,
+      "per_keypoint_px": [
+        132.88866245112527,
+        8.942742309877138,
+        62.87783928427626
+      ],
+      "gt_bbox_xyxy": [
+        856.99968,
+        351.00001299999997,
+        1101.99936,
+        493.000219
+      ],
+      "pred_bbox_xyxy": [
+        966.10546875,
+        353.92041015625,
+        1103.5283203125,
+        491.00152587890625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0241_1972_BMW_1602_Saloon_32779147900.jpg",
+      "score_px": 36.53542448578224,
+      "oks": 0.520821018236785,
+      "per_keypoint_px": [
+        23.56800974549613,
+        20.489072240909568,
+        65.54919147094101
+      ],
+      "gt_bbox_xyxy": [
+        534.00064,
+        509.99974349999997,
+        883.0003200000001,
+        746.0001064999999
+      ],
+      "pred_bbox_xyxy": [
+        533.7963256835938,
+        511.32843017578125,
+        730.6212768554688,
+        741.4381713867188
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__real_009_car_1929_Minerva_AR_17_CV_6_light_saloon_side.jpg",
+      "score_px": 29.140477917462775,
+      "oks": 0.652896358175334,
+      "per_keypoint_px": [
+        17.34674663188175,
+        5.778062850583172,
+        64.2966242699234
+      ],
+      "gt_bbox_xyxy": [
+        782.0006399999999,
+        566.00016,
+        1191.9999999999998,
+        803.00016
+      ],
+      "pred_bbox_xyxy": [
+        944.0177612304688,
+        572.6632080078125,
+        1184.281982421875,
+        802.855224609375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0255_Ford_Ka_Quantum_of_Solace_front-left_National_Motor_Museum_Beaulieu.jpg",
+      "score_px": 25.94046193373428,
+      "oks": 0.6313015371238144,
+      "per_keypoint_px": [
+        20.397402451520044,
+        32.11587432460368,
+        25.308109025079116
+      ],
+      "gt_bbox_xyxy": [
+        480.99968,
+        575.999792,
+        712.99968,
+        891.99978
+      ],
+      "pred_bbox_xyxy": [
+        472.15679931640625,
+        577.966796875,
+        726.1521606445312,
+        885.1500244140625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0023_View_of_a_car_parked_on_the_side_of_a_road_AM_79470-1.jpg",
+      "score_px": 19.64533996284016,
+      "oks": 0.7714757007439411,
+      "per_keypoint_px": [
+        24.11297202210147,
+        21.86099582228141,
+        12.9620520441376
+      ],
+      "gt_bbox_xyxy": [
+        333.00003749999996,
+        442.999872,
+        571.0004625,
+        766.000144
+      ],
+      "pred_bbox_xyxy": [
+        319.9635314941406,
+        433.3013610839844,
+        584.7012939453125,
+        766.4021606445312
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0262_BMW_730i_E65_LCI_Graphite_Gray_Pearl_01.jpg",
+      "score_px": 19.259140638639185,
+      "oks": 0.6530864896219878,
+      "per_keypoint_px": [
+        28.37502725698689,
+        15.24909008422243,
+        14.153304574708233
+      ],
+      "gt_bbox_xyxy": [
+        433.99936,
+        356.00004,
+        593.99936,
+        629.00028
+      ],
+      "pred_bbox_xyxy": [
+        429.57586669921875,
+        376.7502746582031,
+        592.7897338867188,
+        632.43310546875
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0334_Toyota_Camry_sedan_V10.jpg",
+      "score_px": 19.07337759722468,
+      "oks": 0.6189810900210068,
+      "per_keypoint_px": [
+        24.099088488506087,
+        12.223981511268784,
+        20.897062791899174
+      ],
+      "gt_bbox_xyxy": [
+        672.9996799999999,
+        557.00016,
+        829.99936,
+        801.0004799999999
+      ],
+      "pred_bbox_xyxy": [
+        653.4222412109375,
+        564.2366943359375,
+        832.0013427734375,
+        796.1441650390625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__real_009_car_1929_Minerva_AR_17_CV_6_light_saloon_side.jpg",
+      "score_px": 17.961448396591358,
+      "oks": 0.707148898951908,
+      "per_keypoint_px": [
+        6.279056250141342,
+        11.510766127001784,
+        36.09452281263095
+      ],
+      "gt_bbox_xyxy": [
+        97.00031999999999,
+        505.99968,
+        341.00032,
+        715.99968
+      ],
+      "pred_bbox_xyxy": [
+        148.8553466796875,
+        532.6484375,
+        352.13909912109375,
+        712.9287109375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0344_2020_Toyota_Camry_S-Edition_front.jpg",
+      "score_px": 17.569907697721614,
+      "oks": 0.7239155334304915,
+      "per_keypoint_px": [
+        10.222322392387834,
+        31.696522534642764,
+        10.790878166134238
+      ],
+      "gt_bbox_xyxy": [
+        436.00064,
+        368.999856,
+        618.0,
+        651.000048
+      ],
+      "pred_bbox_xyxy": [
+        435.8833923339844,
+        371.313232421875,
+        604.9486083984375,
+        649.5849609375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset/images/val/real_v1__wmc_0098_White_Dodge_Challenger_SRT_three-quarter_back_view.jpg",
+      "score_px": 16.677905691225146,
+      "oks": 0.7441451737788644,
+      "per_keypoint_px": [
+        12.598364394978605,
+        18.304711162516014,
+        19.130641516180816
+      ],
+      "gt_bbox_xyxy": [
+        500.00064,
+        383.99980700000003,
+        704.00064,
+        617.999741
+      ],
+      "pred_bbox_xyxy": [
+        499.9276123046875,
+        387.9222412109375,
+        717.487060546875,
+        616.0228271484375
+      ]
+    }
+  ]
+}

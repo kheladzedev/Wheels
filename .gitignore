@@ -30,8 +30,14 @@ env/
 # Project-specific (per CLAUDE.md "Do not break")
 data/
 runs/
-outputs/
 TestCar/
+
+# Outputs: ignore everything except the eval reports (tiny JSON + md)
+outputs/*
+!outputs/eval/
+outputs/eval/*
+!outputs/eval/*.json
+!outputs/eval/*.md
 
 # Model exports (keep baseline .pt at repo root only)
 *.tflite

@@ -96,7 +96,7 @@ and val metrics are stable. Targets (revisit after Q7 error budget lands):
 - OKS-based pose mAP at OKS sigma 0.1 ≥ 0.5.
 - Median per-keypoint pixel error ≤ 5 px at 640×640 input.
 
-## Stage 5 — End-to-end AR-payload evaluation
+## Stage 5 — End-to-end AR-payload evaluation  ⏳ partial
 
 **Goal:** quantify the payload as the AR layer will see it.
 
@@ -110,8 +110,19 @@ and val metrics are stable. Targets (revisit after Q7 error budget lands):
 - Failure-mode catalogue: small wheels, heavy occlusion, motion blur,
   unusual rim styles.
 
-**Done when:** metrics are stable run-over-run and a short error
-catalogue exists in `outputs/eval/` documenting where the model fails.
+**Status (2026-05-13):** pipeline shipped — `src/eval_keypoints.py`
+covers all four metrics + bbox-area / occlusion slices + worst-N
+failure samples; `scripts/eval_baseline.sh` is the one-command
+wrapper; `outputs/eval/wheel_baseline_v1.json` +
+`outputs/eval/wheel_baseline_v1_summary.md` exist for the baseline.
+**Still blocked on the QA pass through real_v1 auto-drafts** before
+the numbers become a real generalisation signal — current val
+labels are themselves auto-drafts (see summary's "Caveat" section
+and `docs/REAL_V1_RETRAIN.md`).
+
+**Done when:** the same eval run on `wheel_real_v1` (post-QA)
+reaches the Stage 4 targets and the failure catalogue is committed
+in `outputs/eval/`.
 
 ## Stage 6 — Export and integration handoff
 

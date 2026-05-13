@@ -39,5 +39,27 @@ run "$PY" src/check_keypoint_incoming.py \
 run "$PY" src/preview_keypoint_annotations.py \
     --source-root data/incoming/android_plugin --count 5
 
+# Optional smoke if baseline weights are checked out. Skipped silently
+# on a fresh clone so the healthcheck stays useful for new contributors.
+BEST_PT="runs/pose/wheel_baseline_v1/weights/best.pt"
+BEST_ONNX="runs/pose/wheel_baseline_v1/weights/best.onnx"
+DEMO_IMAGES="data/manual_real/images"
+
+if [[ -f "$BEST_PT" && -d "$DEMO_IMAGES" ]]; then
+    TMP_DEMO="$(mktemp -d -t vsbl_healthcheck_demo_XXXXXX)"
+    trap 'rm -rf "$TMP_DEMO"' EXIT
+    run "$PY" scripts/build_demo_gallery.py \
+        --images-dir "$DEMO_IMAGES" --pattern 'real_*.jpg' \
+        --model "$BEST_PT" --out-dir "$TMP_DEMO" --device cpu --limit 1
+else
+    echo "==> skip demo smoke (no best.pt or no $DEMO_IMAGES)"
+fi
+
+if [[ -f "$BEST_PT" && -f "$BEST_ONNX" ]]; then
+    run "$PYTEST" -q tests/test_onnx_drift.py
+else
+    echo "==> skip ONNX drift smoke (no best.pt or no best.onnx)"
+fi
+
 echo
 echo "OK — healthcheck passed."

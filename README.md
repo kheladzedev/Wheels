@@ -188,6 +188,8 @@ production target.
 | Inference (mps, 640px)    | ~100 ms / frame |
 | Weights                   | `runs/pose/wheel_baseline_v1/weights/best.pt` |
 | ONNX export               | `runs/pose/wheel_baseline_v1/weights/best.onnx` (drift <2 px keypoints / <0.05 conf vs PyTorch) |
+| Eval report               | `outputs/eval/wheel_baseline_v1.json` + `outputs/eval/wheel_baseline_v1_summary.md` (regen via `./scripts/eval_baseline.sh`) |
+| Demo presentation         | `docs/DEMO.md` |
 
 Reproduce:
 
@@ -210,6 +212,9 @@ Render a demo gallery of predictions on the 30 real photos:
     --model runs/pose/wheel_baseline_v1/weights/best.pt \
     --out-dir outputs/demo --device cpu
 ```
+
+Full presentation guide (what to show, sound bite, blockers):
+`docs/DEMO.md`.
 
 ### Known limitations
 
