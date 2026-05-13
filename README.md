@@ -168,6 +168,75 @@ Only the keypoints, visibility, and `frame_id` are load-bearing for AR:
 supporting metadata for AR-side filtering, debug overlays, and
 RANSAC-weight tuning.
 
+## Current baseline (`wheel_baseline_v1`, 2026-05-13)
+
+First YOLO-pose model that emits the confirmed AR schema end to end.
+Trained on auto-labelled data, not human-verified — treat as a
+plumbing-grade baseline that exercises the pipeline, not as the
+production target.
+
+| What                      | Value |
+|---------------------------|-------|
+| Base architecture         | `yolo11n-pose`, 5.6 MB checkpoint |
+| Training data             | 221 wheel candidates over 399 photos from `data/incoming/real_v1/` (auto-drafts from `auto_annotate_wheels.py`, YOLO + SAM-2 on Wikimedia Commons) |
+| Train / val split         | 319 / 80 images |
+| Epochs                    | 50, mps |
+| Pose mAP50 (val)          | **0.619** |
+| Pose mAP50-95 (val)       | **0.598** |
+| Box mAP50 (val)           | 0.612 (TZ target ≥0.85) |
+| Recall (B / P)            | 0.841 / 0.841 |
+| Inference (mps, 640px)    | ~100 ms / frame |
+| Weights                   | `runs/pose/wheel_baseline_v1/weights/best.pt` |
+| ONNX export               | `runs/pose/wheel_baseline_v1/weights/best.onnx` (drift <2 px keypoints / <0.05 conf vs PyTorch) |
+
+Reproduce:
+
+```bash
+./.venv/bin/python src/check_yolo_pose_dataset.py --dataset-root data/wheel_pose_dataset
+./.venv/bin/python src/train_yolo.py \
+    --data configs/pose_dataset.yaml --model yolo11n-pose.pt \
+    --epochs 50 --device mps \
+    --project runs/pose --name wheel_baseline_v1
+./.venv/bin/python src/export_model.py \
+    --model runs/pose/wheel_baseline_v1/weights/best.pt \
+    --format onnx --device cpu --simplify
+```
+
+Render a demo gallery of predictions on the 30 real photos:
+
+```bash
+./.venv/bin/python scripts/build_demo_gallery.py \
+    --images-dir data/manual_real/images --pattern 'real_*.jpg' \
+    --model runs/pose/wheel_baseline_v1/weights/best.pt \
+    --out-dir outputs/demo --device cpu
+```
+
+### Known limitations
+
+- Trained on heuristic A/B/C labels derived from SAM-2 wheel masks, not
+  human verified. Box mAP50 sits at 0.61 instead of the TZ target 0.85
+  because precision suffers on noisy labels — recall is already 0.84.
+- Wikimedia source pool skews towards parking-lot aerial views where
+  individual wheels are <40 px; ~half of those images yield zero
+  detections after the size filter.
+- No real frames from the Android plugin yet — there is no
+  human-verified hold-out, so the metrics above are val-on-auto-labels.
+- TFLite / CoreML exports blocked on the locked dep surface; ONNX
+  works through ONNX Runtime Mobile on Android.
+
+### How to push it forward
+
+The two unblockers, in order:
+
+1. **QA the auto-drafts** via `manual_keypoint_annotator.py
+   --prefill-from data/incoming/real_v1/annotations` (review the
+   132 wheels flagged `_needs_review`, drag/drop where wrong). A
+   single ~40-minute pass converts the dataset to human-verified and
+   makes a v2 retrain meaningful.
+2. **Real plugin frames**, even 50–100. The pipeline already accepts
+   them through `data/incoming/<source_name>/` per
+   `docs/KEYPOINT_DATASET_FORMAT.md`.
+
 ## Repo layout
 
 ```
