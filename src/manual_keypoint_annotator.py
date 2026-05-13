@@ -73,6 +73,33 @@ SOURCE_NAME = "manual_real"
 SOURCE_NOTE = "manual real-photo sanity dataset"
 ANNOTATION_METHOD = "manual clicks"
 
+# Keys carried by auto-draft annotations that must be stripped before the
+# cleaned annotation goes into the plugin batch — `check_keypoint_incoming.py`
+# rejects unknown keys inside `points`, and the AR contract forbids per-wheel
+# diagnostics. The top-level `_draft` / `_warning` / `_annotation_method` are
+# dropped too so the cleaned bundle is indistinguishable from manual output.
+DRAFT_WHEEL_DROP_KEYS: frozenset[str] = frozenset(
+    {
+        "_detector_conf",
+        "_vehicle_conf",
+        "_vehicle_class",
+        "_mask_area_px",
+        "_needs_review",
+        "_review_reasons",
+        "_circularity",
+        "_brightness",
+    }
+)
+DRAFT_TOPLEVEL_DROP_KEYS: frozenset[str] = frozenset(
+    {"_draft", "_warning", "_annotation_method"}
+)
+
+# Drag/select hit radius in DISPLAY-space pixels. Generous so users can
+# grab a 4-px keypoint marker without zooming. Tuned to be small enough
+# that 3 keypoints on the same 60-px wheel are still individually
+# selectable.
+DRAG_HIT_RADIUS_PX = 14
+
 # Click sequence per wheel — index into this list is the next click expected.
 # Wording is the canonical UI text under the 2026-05-14 spec revision:
 # A/B are floor / raycast points (screen-space raycast sources onto the
@@ -147,6 +174,165 @@ def build_source_info() -> dict:
         "note": SOURCE_NOTE,
         "annotation_method": ANNOTATION_METHOD,
     }
+
+
+def strip_draft_wheel(wheel: dict) -> dict:
+    """Return a clean copy of ``wheel`` with auto-draft diagnostic keys removed.
+
+    Preserves ``bbox_xyxy`` + ``points`` exactly (no rounding) so a "press
+    y to accept" pass is lossless. Unknown extra keys outside the drop
+    list are kept verbatim — future-compat — but the plugin validator
+    will flag them, so callers should not rely on this.
+    """
+    cleaned: dict = {}
+    for key, value in wheel.items():
+        if key in DRAFT_WHEEL_DROP_KEYS:
+            continue
+        cleaned[key] = value
+    points = cleaned.get("points")
+    if isinstance(points, dict):
+        cleaned["points"] = {
+            name: [float(xy[0]), float(xy[1])]
+            for name, xy in points.items()
+            if name in {"a", "b", "c_disc_bottom"}
+            and isinstance(xy, (list, tuple))
+            and len(xy) == 2
+        }
+    bbox = cleaned.get("bbox_xyxy")
+    if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+        cleaned["bbox_xyxy"] = [float(v) for v in bbox]
+    return cleaned
+
+
+def load_draft_wheels(path: Path) -> list[dict]:
+    """Read a draft JSON, return a clean ``wheels`` list ready for editing.
+
+    Returns ``[]`` if the file is missing, not JSON, missing/empty ``wheels``,
+    or any wheel lacks the required shape. The function is forgiving on
+    purpose — auto-drafts sometimes ship partial outputs, and the user
+    should still be able to enter the image and re-click from scratch.
+    """
+    if not path.is_file():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    raw_wheels = payload.get("wheels")
+    if not isinstance(raw_wheels, list):
+        return []
+
+    cleaned: list[dict] = []
+    for w in raw_wheels:
+        if not isinstance(w, dict):
+            continue
+        bbox = w.get("bbox_xyxy")
+        points = w.get("points")
+        if not (
+            isinstance(bbox, (list, tuple))
+            and len(bbox) == 4
+            and isinstance(points, dict)
+            and {"a", "b", "c_disc_bottom"}.issubset(points.keys())
+        ):
+            continue
+        cleaned.append(strip_draft_wheel(w))
+    return cleaned
+
+
+def find_hit_keypoint(
+    wheels: list[dict],
+    display_xy: tuple[float, float] | list[float],
+    scale: float,
+    hit_radius_px: float = DRAG_HIT_RADIUS_PX,
+) -> tuple[int, str] | None:
+    """Return ``(wheel_idx, point_name)`` for the closest keypoint within
+    ``hit_radius_px`` in display space, or ``None``.
+
+    Ties broken by iteration order so behaviour is deterministic on
+    overlapping keypoints (rare, but happens on very small wheels).
+    """
+    if scale <= 0:
+        return None
+    dx_ref = float(display_xy[0])
+    dy_ref = float(display_xy[1])
+    r2 = float(hit_radius_px) * float(hit_radius_px)
+    best: tuple[int, str] | None = None
+    best_d2 = r2
+    for w_idx, wheel in enumerate(wheels):
+        points = wheel.get("points")
+        if not isinstance(points, dict):
+            continue
+        for name in ("a", "b", "c_disc_bottom"):
+            xy = points.get(name)
+            if not (isinstance(xy, (list, tuple)) and len(xy) == 2):
+                continue
+            dx = float(xy[0]) * scale - dx_ref
+            dy = float(xy[1]) * scale - dy_ref
+            d2 = dx * dx + dy * dy
+            if d2 <= best_d2:
+                best = (w_idx, name)
+                best_d2 = d2
+    return best
+
+
+def find_hit_bbox(
+    wheels: list[dict],
+    display_xy: tuple[float, float] | list[float],
+    scale: float,
+) -> int | None:
+    """Return the index of the wheel whose bbox contains ``display_xy``,
+    or ``None``. If multiple bboxes overlap the point, the smallest-area
+    bbox wins (so a tiny wheel sitting on top of a big one stays grabbable).
+    """
+    if scale <= 0:
+        return None
+    dx = float(display_xy[0])
+    dy = float(display_xy[1])
+    best_idx: int | None = None
+    best_area = float("inf")
+    for w_idx, wheel in enumerate(wheels):
+        bbox = wheel.get("bbox_xyxy")
+        if not (isinstance(bbox, (list, tuple)) and len(bbox) == 4):
+            continue
+        x1 = float(bbox[0]) * scale
+        y1 = float(bbox[1]) * scale
+        x2 = float(bbox[2]) * scale
+        y2 = float(bbox[3]) * scale
+        if x1 <= dx <= x2 and y1 <= dy <= y2:
+            area = (x2 - x1) * (y2 - y1)
+            if area < best_area:
+                best_area = area
+                best_idx = w_idx
+    return best_idx
+
+
+def apply_keypoint_drag(
+    wheels: list[dict],
+    wheel_idx: int,
+    point_name: str,
+    new_xy_image: tuple[float, float] | list[float],
+) -> list[dict]:
+    """Return a copy of ``wheels`` with one keypoint moved.
+
+    New coordinates are stored in **image space**, not display space.
+    Callers must convert before invoking.
+    """
+    if not (0 <= wheel_idx < len(wheels)):
+        raise IndexError(f"wheel_idx {wheel_idx} out of range (len={len(wheels)})")
+    if point_name not in {"a", "b", "c_disc_bottom"}:
+        raise ValueError(
+            f"point_name must be one of a/b/c_disc_bottom, got {point_name!r}"
+        )
+
+    out = [dict(w) for w in wheels]
+    target = dict(out[wheel_idx])
+    new_points = dict(target.get("points") or {})
+    new_points[point_name] = [float(new_xy_image[0]), float(new_xy_image[1])]
+    target["points"] = new_points
+    out[wheel_idx] = target
+    return out
 
 
 def write_annotation(path: Path, annotation: dict) -> None:
@@ -288,28 +474,45 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="If set, re-annotate images that already have a JSON in "
         "--annotations-dir (default: skip them).",
     )
+    p.add_argument(
+        "--prefill-from",
+        type=Path,
+        default=None,
+        help="Optional directory of draft annotation JSONs (e.g. output of "
+        "auto_annotate_wheels.py). When present, each image opens with "
+        "its draft wheels already drawn; press y/Enter to accept, drag "
+        "any keypoint to fix it, click inside a bbox + d to drop a "
+        "wheel, e to clear all and re-click from scratch.",
+    )
     return p.parse_args(argv)
 
 
 def _render(
-    canvas, wheels: list[dict], current_clicks: list, scale: float, status: str
+    canvas,
+    wheels: list[dict],
+    current_clicks: list,
+    scale: float,
+    status: str,
+    selected_idx: int | None = None,
 ) -> None:
-    """Draw committed wheels (green) + in-progress clicks (yellow) + status."""
+    """Draw committed wheels (green; selected = red) + in-progress clicks
+    (yellow) + status."""
     import cv2  # local import keeps headless tests fast
 
     h, w = canvas.shape[:2]
 
-    # Committed wheels — full green.
+    # Committed wheels — full green, except the selected one in red.
     for w_idx, wheel in enumerate(wheels):
         x1, y1, x2, y2 = (int(round(v * scale)) for v in wheel["bbox_xyxy"])
-        cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 200, 0), 2)
+        bbox_color = (0, 0, 255) if w_idx == selected_idx else (0, 200, 0)
+        cv2.rectangle(canvas, (x1, y1), (x2, y2), bbox_color, 2)
         cv2.putText(
             canvas,
             f"#{w_idx}",
             (x1, max(y1 - 6, 12)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
-            (0, 200, 0),
+            bbox_color,
             1,
             cv2.LINE_AA,
         )
@@ -363,12 +566,22 @@ def _render(
     )
 
 
-def _annotate_image(image_path: Path, max_display_side: int) -> list[dict] | str:
+def _annotate_image(
+    image_path: Path,
+    max_display_side: int,
+    prefill_wheels: list[dict] | None = None,
+) -> list[dict] | str:
     """Run the click UI for one image. Returns either:
 
     - list[dict]: the wheels list (possibly empty) to save.
     - "skip":     user pressed `s` — save empty wheels.
     - "quit":     user pressed `q` — caller should finalise + exit.
+
+    If ``prefill_wheels`` is non-empty, those wheels are drawn from the
+    start. The user can drag any keypoint to fix it, click inside a bbox
+    + press ``d`` to drop a wheel, or press ``e`` to clear all wheels
+    and re-click from scratch. Adding extra wheels on top of the
+    prefilled set still works via the existing 5-click sequence.
     """
     import cv2
 
@@ -384,12 +597,42 @@ def _annotate_image(image_path: Path, max_display_side: int) -> list[dict] | str
     window = "manual_keypoint_annotator"
     cv2.namedWindow(window, cv2.WINDOW_AUTOSIZE)
 
-    wheels: list[dict] = []
+    wheels: list[dict] = [dict(w) for w in (prefill_wheels or [])]
     current_clicks: list[tuple[float, float]] = []  # display-space
+    selected_wheel_idx: list[int | None] = [None]
+
+    # Drag state. Boxed in a list so the nested mouse callback can mutate
+    # it without nonlocal gymnastics. Layout: [active, wheel_idx, point_name].
+    drag_state: list = [False, None, None]
 
     def on_mouse(event, x, y, _flags, _param):
-        if event == cv2.EVENT_LBUTTONDOWN and len(current_clicks) < len(CLICK_LABELS):
-            current_clicks.append((x, y))
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # Drag takes priority over fresh clicks if the cursor is on a
+            # keypoint. Selection takes priority over fresh clicks if the
+            # cursor is inside a bbox but not on a keypoint. Otherwise
+            # fall through to the canonical 5-click sequence.
+            hit_kp = find_hit_keypoint(wheels, (x, y), scale)
+            if hit_kp is not None:
+                drag_state[0] = True
+                drag_state[1] = hit_kp[0]
+                drag_state[2] = hit_kp[1]
+                return
+            hit_bbox = find_hit_bbox(wheels, (x, y), scale)
+            if hit_bbox is not None and not current_clicks:
+                selected_wheel_idx[0] = hit_bbox
+                return
+            if len(current_clicks) < len(CLICK_LABELS):
+                current_clicks.append((x, y))
+        elif event == cv2.EVENT_MOUSEMOVE and drag_state[0]:
+            new_img_xy = display_to_image_coord((x, y), scale)
+            wheels[drag_state[1]]["points"][drag_state[2]] = [
+                float(new_img_xy[0]),
+                float(new_img_xy[1]),
+            ]
+        elif event == cv2.EVENT_LBUTTONUP and drag_state[0]:
+            drag_state[0] = False
+            drag_state[1] = None
+            drag_state[2] = None
 
     cv2.setMouseCallback(window, on_mouse)
 
@@ -400,12 +643,14 @@ def _annotate_image(image_path: Path, max_display_side: int) -> list[dict] | str
             if len(current_clicks) < len(CLICK_LABELS)
             else "complete — press n/Enter or a"
         )
+        sel = selected_wheel_idx[0]
+        sel_info = f" selected:#{sel}" if sel is not None else ""
         status = (
-            f"{image_path.name} | wheels: {len(wheels)} | "
+            f"{image_path.name} | wheels: {len(wheels)}{sel_info} | "
             f"click {len(current_clicks)}/{len(CLICK_LABELS)}: {next_label} | "
-            "n/Enter=save+next  a=add wheel  r=reset  s=skip  q=quit"
+            "n/Enter=save  d=drop-selected  e=clear-all  a=add  r=reset  s=skip  q=quit"
         )
-        _render(display, wheels, current_clicks, scale, status)
+        _render(display, wheels, current_clicks, scale, status, selected_idx=sel)
         cv2.imshow(window, display)
 
         key = cv2.waitKey(20) & 0xFF
@@ -421,7 +666,25 @@ def _annotate_image(image_path: Path, max_display_side: int) -> list[dict] | str
         if key == ord("s"):
             cv2.destroyWindow(window)
             return "skip"
-        if key in (ord("n"), 13, 10):  # n or Enter (CR/LF)
+        if key == ord("d"):
+            sel = selected_wheel_idx[0]
+            if sel is not None and 0 <= sel < len(wheels):
+                dropped = wheels.pop(sel)
+                selected_wheel_idx[0] = None
+                print(f"INFO: dropped wheel #{sel} (bbox {dropped.get('bbox_xyxy')})")
+            else:
+                print(
+                    "INFO: no wheel selected — click inside a bbox first, then press d."
+                )
+            continue
+        if key == ord("e"):
+            if wheels:
+                print(f"INFO: cleared {len(wheels)} pre-filled wheel(s)")
+            wheels.clear()
+            selected_wheel_idx[0] = None
+            current_clicks.clear()
+            continue
+        if key in (ord("n"), ord("y"), 13, 10):  # n / y / Enter (CR/LF)
             if len(current_clicks) == len(CLICK_LABELS):
                 wheels.append(_finalise_wheel(current_clicks, scale))
                 current_clicks.clear()
@@ -468,10 +731,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no images in {args.images_dir} from index {args.start_index}")
         return 1
 
+    prefill_dir: Path | None = args.prefill_from
+    if prefill_dir is not None and not prefill_dir.is_dir():
+        print(f"ERROR: --prefill-from is not a directory: {prefill_dir}")
+        return 2
+
     print(f"Annotating {len(images)} image(s) from {args.images_dir}")
     print(f"Annotations land in:  {args.annotations_dir}")
     print(f"Output bundle root:   {args.output_root}")
-    print("Keys: n/Enter = save+next, a = add wheel, r = reset, s = skip, q = quit")
+    if prefill_dir is not None:
+        print(f"Prefill drafts from:  {prefill_dir}")
+        print(
+            "Keys: y/n/Enter = save+next, d = drop selected wheel, "
+            "e = clear all, a = add wheel, r = reset, s = skip, q = quit"
+        )
+    else:
+        print("Keys: n/Enter = save+next, a = add wheel, r = reset, s = skip, q = quit")
 
     processed = 0
     quit_requested = False
@@ -481,7 +756,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"SKIP (already annotated): {img_path.name}")
             continue
 
-        result = _annotate_image(img_path, args.max_display_side)
+        prefill_wheels: list[dict] = []
+        if prefill_dir is not None:
+            draft_path = prefill_dir / f"{img_path.stem}.json"
+            prefill_wheels = load_draft_wheels(draft_path)
+            if prefill_wheels:
+                print(
+                    f"PREFILL: {draft_path.name} -> "
+                    f"{len(prefill_wheels)} draft wheel(s)"
+                )
+
+        result = _annotate_image(
+            img_path, args.max_display_side, prefill_wheels=prefill_wheels
+        )
         if result == "quit":
             quit_requested = True
             break
