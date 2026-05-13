@@ -2,15 +2,25 @@
 
 Writes annotations in the interim JSON format documented in
 docs/ANNOTATION_JSON_FORMAT.md: one `wheel` object per wheel, each with a
-bbox and 3 keypoints (rim_left, rim_right, disc_bottom) per the AR spec.
+bbox and 3 keypoints whose literal label strings are still
+(`rim_left`, `rim_right`, `disc_bottom`) for backward compatibility with
+the legacy converter and `postprocess_wheels.KEYPOINT_NAMES`.
 
     create_sample_incoming.py -> convert_incoming_to_yolo.py -> check_dataset.py
+
+Per the 2026-05-14 contract revision the *content* of `rim_left` and
+`rim_right` has shifted: they are now floor / raycast points near the
+wheel footprint, NOT left/right edges of the metal rim. `disc_bottom`
+keeps its meaning — the lowest visible point of the metal rim. The
+literal strings remain because the legacy converter, training labels,
+and `postprocess_wheels.KEYPOINT_NAMES` index by these names; only the
+geometric semantics drift.
 
 This is NOT real training data. Cartoon cars only — purpose is to validate
 the ingestion pipeline AND give the YOLO-pose head a non-degenerate
 keypoint distribution. Earlier versions placed all wheels in a frame
-straight-on (rim_left.y == rim_right.y), which trains the model into a
-shortcut. The current version randomizes:
+straight-on (A.y == B.y), which trains the model into a shortcut. The
+current version randomizes:
 
   - per-image camera yaw (car rotated around vertical → ellipse aspect)
   - per-image camera tilt (whole-image roll → ellipse rotated)
@@ -228,8 +238,15 @@ def draw_wheel(
     tuple[float, float],
     tuple[float, float],
 ]:
-    """Render one wheel as a tire ellipse + rim ellipse. Returns (bbox_xyxy,
-    rim_left, rim_right, disc_bottom) in image coordinates.
+    """Render one wheel as a tire ellipse + rim ellipse. Returns
+    (bbox_xyxy, point_a, point_b, disc_bottom) in image coordinates.
+
+    The two middle return values are the floor / raycast points A and B
+    (still serialised under the legacy label strings `rim_left` and
+    `rim_right` — the *names* drifted on 2026-05-14, not the index
+    order). They sit in the lower band of the tight tire bbox, close to
+    the wheel's ground footprint. `disc_bottom` keeps its old meaning:
+    the lowest visible point of the rim ellipse.
 
     `yaw_rad` is the wheel-plane rotation around vertical (0 = facing camera).
     `tilt_rad` is an in-image rotation of the projected ellipse (camera roll).
@@ -258,21 +275,29 @@ def draw_wheel(
 
     draw_rim(img, rng, (cx, cy), rim_a, rim_b, alpha_deg, rim_style)
 
-    # Geometric keypoints on the RIM (the metallic disc, not the tire).
-    leftmost, rightmost, bottom = ellipse_extremes(rim_a, rim_b, tilt_rad)
-    rim_left = (cx + leftmost[0], cy + leftmost[1])
-    rim_right = (cx + rightmost[0], cy + rightmost[1])
-    disc_bottom = (cx + bottom[0], cy + bottom[1])
+    # Disc-bottom stays on the metal rim — bottommost point of the rim ellipse.
+    _, _, disc_bottom_offset = ellipse_extremes(rim_a, rim_b, tilt_rad)
+    disc_bottom = (cx + disc_bottom_offset[0], cy + disc_bottom_offset[1])
 
     # Tight bbox on the TIRE (full wheel visible from outside).
     half_w, half_h = ellipse_bbox_half(tire_a, tire_b, tilt_rad)
+
+    # A / B are floor / raycast points near the wheel footprint. Place
+    # them in the lower band of the tight tire bbox so they stay inside
+    # the bbox the converter writes out, sit clearly below the rim
+    # centerline, and remain below the disc-bottom approximation.
+    a_b_dx = 0.70 * half_w
+    a_b_dy = 0.88 * half_h
+    point_a = (cx - a_b_dx, cy + a_b_dy)
+    point_b = (cx + a_b_dx, cy + a_b_dy)
+
     bbox = (
         int(round(cx - half_w)),
         int(round(cy - half_h)),
         int(round(cx + half_w)),
         int(round(cy + half_h)),
     )
-    return bbox, rim_left, rim_right, disc_bottom
+    return bbox, point_a, point_b, disc_bottom
 
 
 def clip_visibility(
@@ -347,7 +372,11 @@ def place_car(
 
     objects: list[dict] = []
     for cx in wheel_xs:
-        bbox, rim_left, rim_right, disc_bottom = draw_wheel(
+        # point_a / point_b carry the floor-ray semantics; the JSON below
+        # keeps the legacy literal label strings rim_left/rim_right for
+        # downstream compatibility (label indices, not names, are the
+        # load-bearing contract).
+        bbox, point_a, point_b, disc_bottom = draw_wheel(
             img, rng, cx, wheel_cy, wheel_r, yaw_rad, tilt_rad, rim_style
         )
         if wheel_visible_fraction(bbox, img_w, img_h) < 0.5:
@@ -361,8 +390,8 @@ def place_car(
         )
         if clipped[2] <= clipped[0] or clipped[3] <= clipped[1]:
             continue
-        (kl_xy, kl_v) = clip_visibility(rim_left, img_w, img_h)
-        (kr_xy, kr_v) = clip_visibility(rim_right, img_w, img_h)
+        (ka_xy, ka_v) = clip_visibility(point_a, img_w, img_h)
+        (kb_xy, kb_v) = clip_visibility(point_b, img_w, img_h)
         (kc_xy, kc_v) = clip_visibility(disc_bottom, img_w, img_h)
         objects.append(
             {
@@ -371,13 +400,13 @@ def place_car(
                 "keypoints": [
                     {
                         "name": "rim_left",
-                        "xy": [round(kl_xy[0], 2), round(kl_xy[1], 2)],
-                        "visibility": kl_v,
+                        "xy": [round(ka_xy[0], 2), round(ka_xy[1], 2)],
+                        "visibility": ka_v,
                     },
                     {
                         "name": "rim_right",
-                        "xy": [round(kr_xy[0], 2), round(kr_xy[1], 2)],
-                        "visibility": kr_v,
+                        "xy": [round(kb_xy[0], 2), round(kb_xy[1], 2)],
+                        "visibility": kb_v,
                     },
                     {
                         "name": "disc_bottom",
@@ -507,10 +536,14 @@ def main() -> int:
         "note": (
             "Synthetic incoming sample for pipeline testing. Camera yaw + tilt "
             "randomized per image, 1-2 cars per image, rim styles vary. "
-            "rim_left/rim_right are the leftmost/rightmost points of the "
-            "rotated rim ellipse (non-degenerate for tilt != 0); disc_bottom "
-            "is the bottommost point of the same ellipse. Not real training "
-            "data — for ingestion pipeline + augmentation validation only."
+            "Per the 2026-05-14 contract revision, label strings rim_left / "
+            "rim_right are A / B floor-ray points near the wheel footprint "
+            "(lower band of the tight tyre bbox), not rim edges. disc_bottom "
+            "is the bottommost point of the rim ellipse. Label *strings* "
+            "remain for backward compatibility with the legacy converter and "
+            "postprocess_wheels.KEYPOINT_NAMES; only the geometric meaning "
+            "has shifted. Not real training data — ingestion pipeline + "
+            "augmentation validation only."
         ),
     }
     (meta_dir / "source_info.json").write_text(

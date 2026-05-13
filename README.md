@@ -292,8 +292,11 @@ weights by default).
 ## End-to-end smoke test (no real data needed)
 
 The synthetic incoming generator + converter exercise the full ingestion
-path. The synthetic images are cartoon cars with straight-on views, so
-`rim_right` and `disc_bottom` keypoints coincide — that's expected.
+path. The synthetic images are cartoon cars with randomised yaw / tilt.
+Per the 2026-05-14 contract revision, the literal label strings
+`rim_left` / `rim_right` now carry floor / raycast semantics — A / B
+sit in the lower band of each wheel bbox near the tyre footprint,
+not on the rim. `disc_bottom` stays on the rim's lowest visible point.
 
 ```bash
 # 1. Generate 20 synthetic incoming images + JSON annotations with 3 keypoints each
@@ -334,7 +337,9 @@ data/incoming/<source_name>/
   metadata/                   # optional
 ```
 
-Example annotation:
+Example annotation (literal label strings still `rim_left` /
+`rim_right` for backward compat with the legacy converter; the
+*content* follows the 2026-05-14 floor-ray semantics for A/B):
 
 ```json
 {
@@ -344,9 +349,9 @@ Example annotation:
       "class_name": "wheel",
       "bbox_xyxy": [100, 220, 200, 320],
       "keypoints": [
-        {"name": "rim_left",     "xy": [150, 225], "visibility": 2},
-        {"name": "rim_right",  "xy": [150, 315], "visibility": 2},
-        {"name": "disc_bottom", "xy": [150, 315], "visibility": 2}
+        {"name": "rim_left",    "xy": [130, 308], "visibility": 2},
+        {"name": "rim_right",   "xy": [170, 308], "visibility": 2},
+        {"name": "disc_bottom", "xy": [150, 290], "visibility": 2}
       ]
     }
   ]
@@ -479,11 +484,12 @@ open outputs/keypoint_preview
 ```
 
 - The generator produces 2- or 4-wheeled cars with the bbox + 3
-  keypoints on each wheel. **Note (2026-05-14 semantic drift):** the
-  synthetic generator currently places `a`/`b` on the rim edges (old
-  semantics), not on the floor; the produced bundle is still a valid
-  *format* fixture but its A/B *content* is incorrect under the new
-  contract. Use only for plumbing smoke-tests, not for training.
+  keypoints on each wheel. Per the 2026-05-14 contract revision, the
+  generator places `a` / `b` in the lower band of each wheel bbox
+  near the tyre footprint (floor / raycast semantics), and
+  `c_disc_bottom` at the lowest visible point of the metal rim. The
+  bundle is intended for plumbing smoke-tests only, not for training
+  — cartoon geometry doesn't generalise.
 - The validator checks: matching image↔annotation stems, required
   fields, `points` dict has exactly `{a, b, c_disc_bottom}`,
   coordinates inside the image, points within bbox ±5 px tolerance,
@@ -494,6 +500,102 @@ open outputs/keypoint_preview
   circles with labels.
 
 See `docs/KEYPOINT_DATASET_FORMAT.md` for the full schema and rules.
+
+## Auto-annotate real photos with a foundation-model pipeline (pre-label)
+
+`src/auto_annotate_wheels.py` produces a plugin-format draft bundle from
+unannotated real photos by combining a COCO-pretrained vehicle detector
+(`yolo11n.pt`, already in the repo) with **SAM 2** mask prompts and a
+geometric postprocess for A/B/C. This is a 2026-style human-in-the-loop
+pre-label: foundation model proposes, human reviews. Every emitted JSON
+carries `_draft: true` and `_warning: "NOT_GROUND_TRUTH_REQUIRES_HUMAN_REVIEW"`,
+and per-wheel `_needs_review: true` (with `_review_reasons[]`) when the
+heuristic looks shaky.
+
+The pipeline reuses only the dependency surface already allowed
+(`ultralytics` + stdlib + numpy + opencv). It is intentionally **not** a
+trained wheel detector — drafts must be reviewed in
+`src/manual_keypoint_annotator.py` before training.
+
+```bash
+# 1. Generate a draft bundle from real photos. SAM 2 weights auto-download
+#    on first run (~160 MB). On Apple Silicon use --device mps.
+./.venv/bin/python src/auto_annotate_wheels.py \
+    --images-dir   data/manual_real/images \
+    --output-root  data/incoming/manual_real_auto \
+    --device       mps \
+    --overwrite
+
+# 2. Validate the draft against the plugin contract.
+./.venv/bin/python src/check_keypoint_incoming.py \
+    --source-root data/incoming/manual_real_auto
+
+# 3. Render bbox + A/B/C overlays for visual sanity.
+./.venv/bin/python src/preview_keypoint_annotations.py \
+    --source-root data/incoming/manual_real_auto \
+    --count       5 \
+    --output-root outputs/manual_real_auto_preview
+
+# 4. Hand-correct flagged wheels and any false positives.
+./.venv/bin/python src/manual_keypoint_annotator.py \
+    --images-dir       data/incoming/manual_real_auto/images \
+    --annotations-dir  data/incoming/manual_real_auto/annotations \
+    --output-root      data/incoming/manual_real_reviewed
+```
+
+Notable knobs (defaults in the source):
+
+- `--detect-conf` — vehicle detector confidence floor (`0.25`).
+- `--drop-conf`   — wheel pseudo-confidence floor below which the wheel
+  is silently dropped (`0.20`).
+- `--review-conf` — wheels with pseudo-confidence below this are kept
+  but flagged `_needs_review` (`0.50`).
+- `--device`      — `mps` / `cuda` / `cpu`.
+
+Hard filters applied to every SAM-2 mask candidate before it can become
+a wheel (any failure → silent drop, no flag). Thresholds tuned against
+`docs/KEYPOINT_SPEC.md`:
+
+| Filter | Threshold | Rejects |
+|---|---|---|
+| Mask area | ≥ 1500 px (`HARD_MIN_MASK_PX`) | LED slivers, badges, distant reflected wheels |
+| Min bbox side | ≥ 40 px (`MIN_BBOX_SIDE_PX`) | thin headlight strips, intake-grille shadows |
+| Bbox aspect | 0.55–1.8 (`ASPECT_HARD_LO/HI`) | bumpers, door handles, mirror strips |
+| Mask area / vehicle area | ≤ 13 % (`WHEEL_AREA_MAX_FRACTION_OF_VEHICLE`) | whole-car-body masks when SAM 2 over-segments |
+| Centroid Y inside vehicle bbox | ≥ 55 % down (`CENTROID_MIN_FRACTION`) | grilles, fog lights, mid-height trim |
+| Centroid Y inside full frame | ≥ 45 % down (`IMAGE_CENTROID_MIN_FRACTION`) | wheels of background vehicles whose bbox sits in the upper frame (auto-show stands, reflected cars) |
+| Circularity 4πA/P² | ≥ 0.62 (`MIN_CIRCULARITY`) | headlight ovals, license plate rectangles, half-moon masks of partially occluded wheels (the spec's "occluded wheels are dropped" rule) |
+| Mean BT.601 luminance inside mask | ≤ 130 (`MAX_TIRE_BRIGHTNESS`) | chrome, lit headlights, bright body paint, white plates |
+
+A/B/C geometry inside `keypoints_from_mask` (matches `docs/KEYPOINT_SPEC.md`):
+
+- **A** — leftmost mask pixel in the bottom 10 % band of the bbox (floor-ray near tyre footprint).
+- **B** — rightmost mask pixel in the same band.
+- **C** — central column's lowest mask pixel, then shifted up by **17.5 % of bbox height** (`C_OFFSET_FRACTION = 0.175`). The fraction follows the standard rim-to-tyre radius ratio (0.65), placing C on the metal disc rather than on the rubber sidewall.
+
+Soft flags (kept in the bundle but marked `_needs_review` with
+`_review_reasons`):
+
+- `low_detector_conf`, `mask_small` (< 2500 px), `mask_touches_edge`,
+  `bbox_touches_edge`, `extreme_aspect` (close to the hard band),
+  `small_bbox` (< 60 px on a side), `low_circularity` (< 0.75),
+  `light_mask` (> 110 luma).
+
+Honest limits:
+
+- The heuristic A/B (floor-ray) and C (disc-bottom) approximations are
+  pixel-accurate only when the mask is clean and side-on. Three-quarter
+  and front-view wheels get reasonable bboxes but A/B/C may drift by
+  several pixels — those wheels are typically auto-flagged `_needs_review`.
+- Reflections in shop windows / car bodies still slip through when the
+  reflection itself reads as a vehicle to the COCO detector. Hand-remove
+  during review.
+- The hard filters above cut a lot of FPs but also drop some legitimate
+  wheels under partial occlusion or unusual angles. If recall matters
+  more than precision for your pass, loosen `MIN_CIRCULARITY`,
+  `MAX_TIRE_BRIGHTNESS`, and `CENTROID_MIN_FRACTION` and re-run.
+- Bundles produced by this script are not training-ready until a human
+  passes them through `manual_keypoint_annotator.py`.
 
 ## Convert an Android-plugin batch into a YOLO-pose dataset
 

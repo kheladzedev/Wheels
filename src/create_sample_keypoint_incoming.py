@@ -10,6 +10,11 @@ The two generators are intentionally independent. The legacy one produces
 the interim YOLO-pose oriented JSON (`objects[].keypoints[].name/xy/visibility`).
 This one produces the plugin contract (`wheels[].points.a/b/c_disc_bottom`).
 
+Per the 2026-05-14 spec revision, A/B are floor / raycast points near the
+wheel footprint, not rim edges. The synthetic geometry below matches that:
+A/B sit in the lower band of the bbox, near the tyre base; C stays at the
+lowest visible point of the metal disc.
+
 Usage:
     python src/create_sample_keypoint_incoming.py --count 50 --overwrite
 """
@@ -44,6 +49,14 @@ P_TWO_WHEELS = 0.7
 
 # Rim radius as a fraction of the tyre (outer) radius.
 RIM_TO_TYRE = 0.65
+
+# A/B placement under the 2026-05-14 contract: A and B are floor / raycast
+# points near the wheel footprint, NOT rim edges. The fractions below are
+# expressed in tyre-radius units relative to the wheel centre — chosen so
+# both points sit comfortably inside the bbox (no validator warnings) and
+# clearly in the lower band, below the disc-bottom point.
+A_B_X_FRACTION_OF_TYRE = 0.70
+A_B_Y_FRACTION_OF_TYRE = 0.88
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -111,8 +124,16 @@ def _draw_car_body(
 def _draw_wheel(img: np.ndarray, cx: int, cy: int, tyre_radius: int) -> dict:
     """Draw one wheel (tyre + rim) and return its annotation entry.
 
-    The annotation uses Python floats throughout (cast explicitly) because the
-    plugin format spec says no numpy floats, no ints — see docs/KEYPOINT_DATASET_FORMAT.md.
+    Geometry follows the 2026-05-14 contract revision:
+      - bbox covers the full wheel including tyre (square of side 2r).
+      - `a` / `b` are floor / raycast points near the wheel footprint, in
+        the lower band of the bbox, not on the rim. They stay inside the
+        bbox so the validator's "point-in-bbox" check passes clean.
+      - `c_disc_bottom` is the lowest visible point of the metal disc —
+        bottom edge of the rim ellipse.
+
+    Floats throughout: plugin format spec says no numpy floats, no ints —
+    see docs/KEYPOINT_DATASET_FORMAT.md.
     """
     rim_radius = max(2, int(tyre_radius * RIM_TO_TYRE))
     cv2.circle(img, (cx, cy), tyre_radius, TYRE_BGR, -1, lineType=cv2.LINE_AA)
@@ -122,12 +143,14 @@ def _draw_wheel(img: np.ndarray, cx: int, cy: int, tyre_radius: int) -> dict:
     cy_f = float(cy)
     r_f = float(tyre_radius)
     rim_f = float(rim_radius)
+    a_b_dx = r_f * A_B_X_FRACTION_OF_TYRE
+    a_b_dy = r_f * A_B_Y_FRACTION_OF_TYRE
 
     return {
         "bbox_xyxy": [cx_f - r_f, cy_f - r_f, cx_f + r_f, cy_f + r_f],
         "points": {
-            "a": [cx_f - rim_f, cy_f],
-            "b": [cx_f + rim_f, cy_f],
+            "a": [cx_f - a_b_dx, cy_f + a_b_dy],
+            "b": [cx_f + a_b_dx, cy_f + a_b_dy],
             "c_disc_bottom": [cx_f, cy_f + rim_f],
         },
     }
@@ -249,6 +272,9 @@ def main(argv: list[str] | None = None) -> int:
         "seed": int(args.seed),
         "notes": (
             "Synthetic smoke-test batch for plugin format validation. "
+            "A/B follow the 2026-05-14 floor-ray semantics (lower band of "
+            "the wheel bbox near the footprint, not rim edges); "
+            "c_disc_bottom is the lowest visible rim point. "
             "Not real training data."
         ),
     }

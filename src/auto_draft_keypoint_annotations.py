@@ -23,10 +23,13 @@ Heuristic (deliberately dumb so the "draft" label is honest):
   - If the image filename stem matches any of the side-view keywords
     (sboku / side / avto / auto / car / mashin / vid / wheel / koleso),
     draft two wheels in the lower third: centres at x=0.27*W and
-    x=0.73*W, cy=0.82*H, radius=max(8, 0.08*min(W, H)). A and B sit on
-    the horizontal midline of the bbox at ±0.7*r; C sits 0.7*r below
-    the centre. Centres are clamped so bbox + points stay strictly
-    inside [0, W) x [0, H).
+    x=0.73*W, cy=0.82*H, radius=max(8, 0.08*min(W, H)). Under the
+    2026-05-14 spec revision A and B are floor / raycast points: both
+    sit in the lower band of the bbox at (cx ± 0.7*r, cy + 0.88*r),
+    well below the rim centerline and below the disc-bottom point. C
+    (c_disc_bottom) sits 0.65*r below the centre, on the rim's lower
+    edge. Centres are clamped so bbox + points stay strictly inside
+    [0, W) x [0, H).
   - Otherwise emit wheels=[].
 
 Usage:
@@ -106,10 +109,17 @@ def _filename_suggests_car(stem: str, keywords: list[str]) -> bool:
 def _draft_two_wheels(image_w: int, image_h: int) -> list[dict]:
     """Two synthetic wheels in the lower third of the frame.
 
-    The geometry is deliberately conservative so the bundle passes the
-    plugin validator without warnings:
-      - bbox stays strictly inside [0, W) x [0, H)
-      - A / B / C stay strictly inside the bbox
+    Geometry follows the 2026-05-14 contract revision:
+      - bbox covers the full wheel (tyre + rim), strictly inside the
+        image — the validator's "outside image" warning fires on
+        >= W or >= H, so we keep a 1-2 px margin.
+      - A / B are floor / raycast points near the wheel footprint, in
+        the lower band of the bbox, not on the rim midline.
+      - C (c_disc_bottom) is the lowest visible point of the metal
+        disc — above A/B (because the rim sits above the tyre base)
+        but still below the bbox centerline.
+      - All three points stay strictly inside the bbox so the
+        validator passes clean.
     """
     r = max(8.0, 0.08 * min(image_w, image_h))
     raw_cy = image_h * 0.82
@@ -125,9 +135,9 @@ def _draft_two_wheels(image_w: int, image_h: int) -> list[dict]:
             {
                 "bbox_xyxy": [cx - r, cy - r, cx + r, cy + r],
                 "points": {
-                    "a": [cx - 0.7 * r, cy],
-                    "b": [cx + 0.7 * r, cy],
-                    "c_disc_bottom": [cx, cy + 0.7 * r],
+                    "a": [cx - 0.7 * r, cy + 0.88 * r],
+                    "b": [cx + 0.7 * r, cy + 0.88 * r],
+                    "c_disc_bottom": [cx, cy + 0.65 * r],
                 },
             }
         )

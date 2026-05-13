@@ -70,6 +70,27 @@ def test_draft_bundle_is_valid_and_marked(tmp_path: Path) -> None:
         x1, y1, x2, y2 = wheel["bbox_xyxy"]
         assert x1 < x2 and y1 < y2
 
+        # 2026-05-14 floor-ray semantics: A/B in lower band of bbox,
+        # below c_disc_bottom, with A on the left and B on the right.
+        a_x, a_y = wheel["points"]["a"]
+        b_x, b_y = wheel["points"]["b"]
+        c_x, c_y = wheel["points"]["c_disc_bottom"]
+        mid_y = (y1 + y2) / 2.0
+        assert a_y > mid_y, f"a.y={a_y} must be in lower half (mid={mid_y})"
+        assert b_y > mid_y, f"b.y={b_y} must be in lower half (mid={mid_y})"
+        assert a_y > c_y, f"a.y={a_y} must be below c_disc_bottom.y={c_y}"
+        assert b_y > c_y, f"b.y={b_y} must be below c_disc_bottom.y={c_y}"
+        assert a_x < b_x, f"a.x={a_x} must be left of b.x={b_x}"
+        # All points inside the bbox (strict).
+        for name, (px, py) in (
+            ("a", (a_x, a_y)),
+            ("b", (b_x, b_y)),
+            ("c_disc_bottom", (c_x, c_y)),
+        ):
+            assert x1 <= px <= x2 and y1 <= py <= y2, (
+                f"point {name}=({px},{py}) outside bbox [{x1},{y1},{x2},{y2}]"
+            )
+
     anon = json.loads((out_root / "annotations" / "anon.json").read_text())
     assert anon["_draft"] is True
     assert anon["wheels"] == []
