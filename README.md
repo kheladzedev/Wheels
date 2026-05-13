@@ -170,6 +170,17 @@ RANSAC-weight tuning.
 
 ## Current baseline (`wheel_baseline_v1`, 2026-05-13)
 
+> **STALE for A/B evaluation.** This run, and any other run trained
+> before the **2026-05-14 keypoint semantic correction**, was fitted
+> against the old "rim edge" interpretation of A/B. Under the current
+> contract A/B are screen-space **floor / raycast points** near the
+> wheel footprint, not rim edges. Bbox numbers, confidence numbers,
+> and C alone remain meaningful; A/B predictions from these runs must
+> not be used to score the keypoint pipeline. The synthetic smoke
+> proof for the new semantics is `runs/pose/wheel_pose_semantic_v1/`
+> (see its `SEMANTICS.md`). A real-data retrain against the corrected
+> contract is still pending.
+
 First YOLO-pose model that emits the confirmed AR schema end to end.
 Trained on auto-labelled data, not human-verified — treat as a
 plumbing-grade baseline that exercises the pipeline, not as the
@@ -398,6 +409,42 @@ python src/train_yolo.py \
 > **Synthetic dataset is NOT a quality signal.** Cartoon cars don't
 > generalize. The point is to validate wiring before the team hands over a
 > real labelled batch.
+
+## First real plugin batch acceptance
+
+When the **first** real Android-plugin batch lands, run the dedicated
+acceptance workflow before anything else. It validates the incoming
+format, renders previews, runs the YOLO-pose converter with the quality
+gate enforced, and stops there. **It does not train.**
+
+```bash
+# Default source root: data/incoming/android_plugin_real
+./scripts/accept_first_plugin_batch.sh
+
+# Or with an explicit path:
+./scripts/accept_first_plugin_batch.sh data/incoming/<batch_dir>
+```
+
+The script chains:
+
+```
+check_keypoint_incoming.py            -> incoming format invariants
+preview_keypoint_annotations.py       -> outputs/keypoint_preview/
+convert_keypoint_incoming_to_yolo_pose.py --fail-on-quality-gate
+check_yolo_pose_dataset.py            -> YOLO-pose layout invariants
+preview_yolo_pose_labels.py           -> outputs/pose_label_preview/train/
+```
+
+> **Do not train until a human has inspected both preview folders.**
+> Confirm bbox covers the full wheel, A/B are screen-space floor-ray
+> points near the wheel footprint (not rim edges), C is the lowest
+> visible point of the metal disc, and no occluded wheels are
+> annotated. Then mark the batch `ACCEPT_FOR_TRAINING`,
+> `REJECT_NEEDS_PLUGIN_FIX`, or `ACCEPT_ONLY_AS_DEBUG` per the
+> decision rubric in `docs/FIRST_PLUGIN_BATCH_ACCEPTANCE.md`.
+
+Full step-by-step, expected layout, and the failure-mode rubric:
+`docs/FIRST_PLUGIN_BATCH_ACCEPTANCE.md`.
 
 ## Convert real incoming annotations
 
