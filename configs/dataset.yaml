@@ -1,0 +1,38 @@
+# YOLO-pose dataset config for AR wheel fitting.
+# Layout (see docs/DATASET_SPEC.md):
+#
+#   data/wheel_dataset/
+#     images/train/*.jpg
+#     images/val/*.jpg
+#     labels/train/*.txt
+#     labels/val/*.txt
+#
+# Pose label format (one line per wheel, normalized to [0,1] except v):
+#   <class_id> <cx> <cy> <w> <h> <kp0_x> <kp0_y> <v0> <kp1_x> <kp1_y> <v1> <kp2_x> <kp2_y> <v2>
+#
+# Visibility flags v_i:
+#   0 = not labelled / not visible (loss skipped)
+#   1 = labelled but occluded
+#   2 = labelled and visible
+
+path: data/wheel_dataset
+train: images/train
+val: images/val
+
+# Single class — rim is now represented by the 2 rim keypoints, not a separate bbox.
+names:
+  0: wheel
+
+# 3 keypoints per wheel, 3 dims each (x, y, visibility):
+#   kp0 = rim_left   — leftmost visible point on the metal rim
+#   kp1 = rim_right  — rightmost visible point on the metal rim
+#   kp2 = disc_bottom — physical lowest point of the metal disc (height anchor)
+# Left + right (not top + bottom) is required because the AR side does
+# raycast + RANSAC to reconstruct the wheel plane. Top + bottom would lie
+# on a single vertical line and not constrain the plane's yaw — confirmed
+# by the AR team's mock diagram. See docs/QUESTIONS_FOR_TEAM.md.
+kpt_shape: [3, 3]
+
+# Keypoint indices after horizontal flip augmentation.
+# Under horizontal flip rim_left and rim_right swap places; disc_bottom stays.
+flip_idx: [1, 0, 2]

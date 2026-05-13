@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(python src/*)",
+      "Bash(python -m pytest:*)",
+      "Bash(pytest:*)",
+      "Bash(yolo:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(mypy src:*)",
+      "Bash(./.venv/bin/python:*)",
+      "Bash(./.venv/bin/pytest:*)",
+      "Bash(./.venv/bin/ruff:*)",
+      "Bash(./.venv/bin/mypy:*)",
+      "Bash(jupyter nbconvert:*)",
+      "Bash(jupyter execute:*)",
+      "Bash(ls configs:*)",
+      "Bash(ls data:*)",
+      "Bash(ls outputs:*)",
+      "Bash(ls runs:*)",
+      "Bash(cat configs/*)",
+      "Bash(head outputs/*)",
+      "Bash(tail outputs/*)"
+    ],
+    "deny": [
+      "Bash(rm -rf data:*)",
+      "Bash(rm -rf runs:*)",
+      "Bash(rm -rf outputs:*)"
+    ]
+  }
+}

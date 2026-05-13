@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Project-specific (per CLAUDE.md "Do not break")
+data/
+runs/
+outputs/
+TestCar/
+
+# Model exports (keep baseline .pt at repo root only)
+*.tflite
+*.onnx
+*.mlmodel
+*.mlpackage/
+*.pt
+!yolo11n.pt
+!yolo11n-pose.pt
+
+# Logs / temp
+*.log
+*.tmp
+wandb/
