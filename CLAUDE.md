@@ -240,9 +240,12 @@ VSBL/
 Tracked in `docs/OPEN_QUESTIONS_AR_SPEC.md` and
 `docs/QUESTIONS_FOR_TEAM.md`. Live items as of 2026-05-13:
 
-- **No real labelled batch yet.** Everything in the pipeline runs on
-  cartoon synthetic data from `create_sample_*`. Detection quality is
-  unproven until the plugin sends real frames.
+- **No human-verified labelled batch yet.** `data/incoming/real_v1/`
+  carries 221 auto-drafts from `auto_annotate_wheels.py` over 399
+  Wikimedia photos; needs a QA pass through
+  `manual_keypoint_annotator.py --prefill-from
+  data/incoming/real_v1/annotations` before it counts as ground truth.
+  Synthetic data from `create_sample_*` is plumbing-only.
 - **Train/val split for video frames.** The plugin converter does a
   random per-image split — unsafe when consecutive frames belong to one
   scene. Needs `scene_id` (or similar group key) from the plugin, or a
@@ -251,12 +254,13 @@ Tracked in `docs/OPEN_QUESTIONS_AR_SPEC.md` and
   Wheels with partially hidden A/B/C are dropped upstream. If real data
   contains such cases, we need a decision: drop ML-side too, or extend
   the format.
-- **Inference response alignment.** `src/infer_image.py` still emits
-  the transitional schema. Aligning it to the confirmed contract is
-  pending — schedule before first AR integration.
-- **Production export format.** TFLite is the first target, but we have
-  no quantization tolerances from AR yet. See Q10 in
-  `docs/QUESTIONS_FOR_TEAM.md`.
+- **Production export format.** ONNX export works
+  (`runs/pose/wheel_baseline_v1/weights/best.onnx`), sanity-check
+  drift <2 px keypoints / <0.05 confidence vs PyTorch. TFLite + CoreML
+  blocked: both pull in extra deps outside the locked surface
+  (tensorflow / coremltools) and the latter currently fails on a
+  known cast bug. Pending Q10 to confirm whether the AR side can
+  ingest ONNX directly or we need to enlarge the dep surface.
 
 ## Useful agents for this repo
 
