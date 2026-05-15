@@ -106,9 +106,16 @@ violations — they are clarifications the spec did not include.
 - §10 Drop list confirmation (`image`, `image_size`, `thresholds`,
   `stats`, `warnings`).
 
-The current code emits the transitional ("legacy") shape by default;
-the target shape is generated via `--target-schema` in
-`src/infer_image.py` and can be inspected before sign-off.
+Status (post 2026-05-14 schema-drift fix):
+- `src/infer_image.py` writes the **confirmed AR schema** as the primary
+  `<stem>.json`; legacy intermediate is `<stem>_legacy.json`. The
+  `--confirmed-schema` flag is a no-op alias.
+- `src/infer_batch.py` writes the **confirmed AR schema** as the primary
+  `<stem>__frame_XXX.json`; legacy intermediate is
+  `<stem>__frame_XXX_legacy.json` when `--emit-legacy` is passed
+  (`--target-schema` is a deprecated alias for the same). The historic
+  pre-confirmed "target" draft schema is no longer emitted by either
+  entry point.
 
 ## How to use this document
 

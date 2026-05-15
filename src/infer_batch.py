@@ -15,26 +15,39 @@ We do NOT do 3D, RANSAC, plane reconstruction, or track-id assignment —
 that's the AR client's job. We only replay the model and dump the
 per-frame contract.
 
+Schema policy (mirrors ``infer_image.py``):
+
+  Primary output is the **AR-team confirmed schema** — exactly
+  ``{frame_id, wheels[].{bbox_xyxy, confidence, points.{a, b,
+  c_disc_bottom}}}``. No image paths, no thresholds, no timestamps,
+  no per-keypoint visibility. The legacy intermediate payload (with
+  per-keypoint visibility, warnings, stats, image meta) is written
+  only when ``--emit-legacy`` is passed, with a ``_legacy.json``
+  suffix. The historic pre-confirmed "target" draft schema is no
+  longer written by this script.
+
 Usage:
     python src/infer_batch.py \\
         --source data/wheel_dataset/images/val \\
         --model runs/pose/wheel_v3/weights/best.pt \\
         --out-dir /tmp/batch_out \\
-        --device cpu --max-frames 3 --target-schema
+        --device cpu --max-frames 3
 
 Output layout (per-frame mode, default):
-    <out-dir>/<stem>__frame_000000.json         AR legacy payload
-    <out-dir>/<stem>__frame_000000_target.json  if --target-schema
+    <out-dir>/<stem>__frame_000000.json         AR confirmed schema (primary)
+    <out-dir>/<stem>__frame_000000_legacy.json  if --emit-legacy
     <out-dir>/batch_summary.json                totals + frame index
 
 Combined-jsonl mode (--combined-jsonl):
-    <out-dir>/<stem>.jsonl                      one payload per line
-    <out-dir>/<stem>_target.jsonl               if --target-schema
+    <out-dir>/<stem>.jsonl                      one confirmed payload per line
+    <out-dir>/<stem>_legacy.jsonl               if --emit-legacy
     <out-dir>/batch_summary.json
 
 Note: ``batch_summary.json`` includes a ``frame_index`` array (per-frame
 manifest of frame_id + JSON path) as an extension beyond the spec's 14
 keys, so AR can correlate frames to outputs without scanning out_dir.
+The ``json`` field in each entry points to the **confirmed primary**;
+``legacy_json`` is populated only when --emit-legacy is on, else null.
 """
 
 from __future__ import annotations
@@ -48,7 +61,28 @@ from typing import Literal
 from postprocess_wheels import (
     N_KEYPOINTS,
     build_ar_payload,
-    to_target_schema,
+    to_confirmed_schema,
+)
+
+# Keys that must NEVER appear in the confirmed-schema payload that AR
+# receives — enforced before writing each frame. Mirrors the guard
+# used by infer_image.py.
+CONFIRMED_FORBIDDEN_TOP_LEVEL = (
+    "image",
+    "image_size",
+    "thresholds",
+    "stats",
+    "timestamp",
+    "track_id",
+)
+CONFIRMED_FORBIDDEN_WHEEL_KEYS = (
+    "wheel_bbox",
+    "bbox_xywh",
+    "keypoints",
+    "keypoints_confidence",
+    "visibility",
+    "warnings",
+    "track_id",
 )
 
 WHEEL_CLASS_NAMES = {"wheel"}
@@ -280,9 +314,24 @@ def parse_args() -> argparse.Namespace:
         help="Write one combined .jsonl per output instead of one JSON per frame.",
     )
     p.add_argument(
+        "--emit-legacy",
+        action="store_true",
+        help=(
+            "Additionally emit the legacy intermediate payload (with "
+            "wheel_bbox/keypoints/visibility/warnings/stats + image meta) "
+            "as <stem>__frame_XXX_legacy.json. Useful for debugging; AR "
+            "never reads it. The primary <stem>__frame_XXX.json always "
+            "uses the confirmed AR contract."
+        ),
+    )
+    p.add_argument(
         "--target-schema",
         action="store_true",
-        help="Additionally emit AR-target-schema JSON per frame.",
+        help=(
+            "DEPRECATED alias for --emit-legacy. The old pre-confirmed "
+            "'target' draft schema is no longer written; this flag now "
+            "writes the legacy intermediate payload as a debug companion."
+        ),
     )
     p.add_argument(
         "--fps",
@@ -302,6 +351,28 @@ def parse_args() -> argparse.Namespace:
 # ---------------------------------------------------------------------------
 
 
+def _assert_no_forbidden(confirmed: dict, source_label: str) -> None:
+    """Raise if any banned field leaked into the confirmed primary payload.
+
+    Run on every frame just before writing — cheap, catches contract drift
+    introduced by upstream changes to ``to_confirmed_schema`` or to this
+    script. The guards mirror infer_image.py.
+    """
+    leaked_top = [k for k in CONFIRMED_FORBIDDEN_TOP_LEVEL if k in confirmed]
+    if leaked_top:
+        raise AssertionError(
+            f"{source_label}: forbidden top-level keys in confirmed payload: "
+            f"{leaked_top}"
+        )
+    for i, w in enumerate(confirmed.get("wheels", [])):
+        leaked = [k for k in CONFIRMED_FORBIDDEN_WHEEL_KEYS if k in w]
+        if leaked:
+            raise AssertionError(
+                f"{source_label}: wheel[{i}] in confirmed payload has forbidden "
+                f"keys: {leaked}"
+            )
+
+
 def _build_payloads(
     detections: list[dict],
     *,
@@ -310,43 +381,62 @@ def _build_payloads(
     timestamp: float,
     img_size: list[int],
     thresholds: dict,
-    want_target: bool,
+    image_field: str,
+    want_legacy: bool,
 ) -> tuple[dict, dict | None]:
-    """Build the AR legacy payload and (optionally) the target-schema one.
+    """Build the AR-confirmed primary payload plus optional legacy companion.
 
-    Mirrors the shape produced by ``infer_image.py`` so AR sees the same
-    contract regardless of which entry point we use.
+    Returns ``(confirmed, legacy_or_None)``. The confirmed payload is what
+    AR consumes — strictly ``{frame_id, wheels[].{bbox_xyxy, confidence,
+    points}}``. The legacy companion (when requested) carries the
+    intermediate per-keypoint visibility / warnings / stats / image meta
+    used internally for debug overlays and was the old primary shape; it
+    is never read by AR.
     """
-    ar_payload = build_ar_payload(
+    legacy_payload = build_ar_payload(
         detections, conf_threshold=conf, frame_id=frame_id, timestamp=timestamp
     )
-    target_payload = to_target_schema(ar_payload) if want_target else None
-    ar_payload["image_size"] = img_size
-    ar_payload["thresholds"] = thresholds
-    return ar_payload, target_payload
+    confirmed_payload = to_confirmed_schema(legacy_payload)
+    _assert_no_forbidden(confirmed_payload, source_label=f"frame {frame_id}")
+
+    if not want_legacy:
+        return confirmed_payload, None
+
+    legacy_with_meta = dict(legacy_payload)
+    legacy_with_meta["image"] = image_field
+    legacy_with_meta["image_size"] = img_size
+    legacy_with_meta["thresholds"] = thresholds
+    return confirmed_payload, legacy_with_meta
 
 
 def _write_per_frame(
     out_dir: Path,
     stem: str,
     frame_index: int,
-    ar_payload: dict,
-    target_payload: dict | None,
+    confirmed_payload: dict,
+    legacy_payload: dict | None,
 ) -> tuple[Path, Path | None]:
-    """Persist one frame as ``<stem>__frame_<i:06d>.json`` (+ target)."""
+    """Persist one frame.
+
+    Primary: ``<stem>__frame_<i:06d>.json`` — confirmed AR schema.
+    Optional: ``<stem>__frame_<i:06d>_legacy.json`` — legacy intermediate
+    payload when --emit-legacy was passed. AR never reads the legacy file;
+    it exists for ML-side debugging only.
+    """
     base = out_dir / f"{stem}__frame_{frame_index:06d}"
     json_path = base.with_suffix(".json")
     json_path.write_text(
-        json.dumps(ar_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(confirmed_payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
     )
-    target_path: Path | None = None
-    if target_payload is not None:
-        target_path = out_dir / f"{stem}__frame_{frame_index:06d}_target.json"
-        target_path.write_text(
-            json.dumps(target_payload, indent=2, ensure_ascii=False),
+    legacy_path: Path | None = None
+    if legacy_payload is not None:
+        legacy_path = out_dir / f"{stem}__frame_{frame_index:06d}_legacy.json"
+        legacy_path.write_text(
+            json.dumps(legacy_payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-    return json_path, target_path
+    return json_path, legacy_path
 
 
 def _run_directory(
@@ -366,13 +456,14 @@ def _run_directory(
     frames_inferred = 0
     wheels_detected_total = 0
     frame_index_list: list[dict] = []
+    want_legacy = bool(args.emit_legacy or args.target_schema)
 
     jsonl_fh = None
-    jsonl_target_fh = None
+    jsonl_legacy_fh = None
     if args.combined_jsonl:
         jsonl_fh = (out_dir / f"{stem}.jsonl").open("w", encoding="utf-8")
-        if args.target_schema:
-            jsonl_target_fh = (out_dir / f"{stem}_target.jsonl").open(
+        if want_legacy:
+            jsonl_legacy_fh = (out_dir / f"{stem}_legacy.jsonl").open(
                 "w", encoding="utf-8"
             )
 
@@ -398,18 +489,19 @@ def _run_directory(
             frame_id = frame_id_for_image(img_path.stem)
             timestamp = timestamp_for_image_index(original_idx, fps=fps_used)
 
-            ar_payload, target_payload = _build_payloads(
+            confirmed_payload, legacy_payload = _build_payloads(
                 detections,
                 conf=args.conf,
                 frame_id=frame_id,
                 timestamp=timestamp,
                 img_size=img_size,
                 thresholds=thresholds,
-                want_target=args.target_schema,
+                image_field=str(img_path),
+                want_legacy=want_legacy,
             )
-            ar_payload["image"] = str(img_path)
 
-            wheels_detected_total += len(ar_payload["wheels"])
+            n_wheels = len(confirmed_payload["wheels"])
+            wheels_detected_total += n_wheels
             frames_inferred += 1
 
             if args.combined_jsonl:
@@ -417,38 +509,36 @@ def _run_directory(
                     raise RuntimeError(
                         "jsonl_fh is None inside combined-jsonl branch — bug"
                     )
-                jsonl_fh.write(json.dumps(ar_payload, ensure_ascii=False) + "\n")
-                if jsonl_target_fh is not None and target_payload is not None:
-                    jsonl_target_fh.write(
-                        json.dumps(target_payload, ensure_ascii=False) + "\n"
+                jsonl_fh.write(json.dumps(confirmed_payload, ensure_ascii=False) + "\n")
+                if jsonl_legacy_fh is not None and legacy_payload is not None:
+                    jsonl_legacy_fh.write(
+                        json.dumps(legacy_payload, ensure_ascii=False) + "\n"
                     )
                 frame_index_list.append(
                     {
                         "frame_id": frame_id,
-                        "timestamp": timestamp,
                         "source_image": str(img_path),
-                        "n_wheels": len(ar_payload["wheels"]),
+                        "n_wheels": n_wheels,
                     }
                 )
             else:
-                json_path, target_path = _write_per_frame(
-                    out_dir, stem, original_idx, ar_payload, target_payload
+                json_path, legacy_path = _write_per_frame(
+                    out_dir, stem, original_idx, confirmed_payload, legacy_payload
                 )
                 frame_index_list.append(
                     {
                         "frame_id": frame_id,
-                        "timestamp": timestamp,
                         "source_image": str(img_path),
-                        "n_wheels": len(ar_payload["wheels"]),
+                        "n_wheels": n_wheels,
                         "json": str(json_path),
-                        "target_json": str(target_path) if target_path else None,
+                        "legacy_json": str(legacy_path) if legacy_path else None,
                     }
                 )
     finally:
         if jsonl_fh is not None:
             jsonl_fh.close()
-        if jsonl_target_fh is not None:
-            jsonl_target_fh.close()
+        if jsonl_legacy_fh is not None:
+            jsonl_legacy_fh.close()
 
     return {
         "fps_used": fps_used,
@@ -487,13 +577,14 @@ def _run_video(
     frames_inferred = 0
     wheels_detected_total = 0
     frame_index_list: list[dict] = []
+    want_legacy = bool(args.emit_legacy or args.target_schema)
 
     jsonl_fh = None
-    jsonl_target_fh = None
+    jsonl_legacy_fh = None
     if args.combined_jsonl:
         jsonl_fh = (out_dir / f"{stem}.jsonl").open("w", encoding="utf-8")
-        if args.target_schema:
-            jsonl_target_fh = (out_dir / f"{stem}_target.jsonl").open(
+        if want_legacy:
+            jsonl_legacy_fh = (out_dir / f"{stem}_legacy.jsonl").open(
                 "w", encoding="utf-8"
             )
 
@@ -525,18 +616,19 @@ def _run_video(
                 frame_id = frame_id_for_video(stem, original_idx)
                 timestamp = timestamp_for_video(original_idx, fps=fps_used)
 
-                ar_payload, target_payload = _build_payloads(
+                confirmed_payload, legacy_payload = _build_payloads(
                     detections,
                     conf=args.conf,
                     frame_id=frame_id,
                     timestamp=timestamp,
                     img_size=img_size,
                     thresholds=thresholds,
-                    want_target=args.target_schema,
+                    image_field=f"{source}#frame={original_idx}",
+                    want_legacy=want_legacy,
                 )
-                ar_payload["image"] = f"{source}#frame={original_idx}"
 
-                wheels_detected_total += len(ar_payload["wheels"])
+                n_wheels = len(confirmed_payload["wheels"])
+                wheels_detected_total += n_wheels
                 frames_inferred += 1
 
                 if args.combined_jsonl:
@@ -544,31 +636,31 @@ def _run_video(
                         raise RuntimeError(
                             "jsonl_fh is None inside combined-jsonl branch — bug"
                         )
-                    jsonl_fh.write(json.dumps(ar_payload, ensure_ascii=False) + "\n")
-                    if jsonl_target_fh is not None and target_payload is not None:
-                        jsonl_target_fh.write(
-                            json.dumps(target_payload, ensure_ascii=False) + "\n"
+                    jsonl_fh.write(
+                        json.dumps(confirmed_payload, ensure_ascii=False) + "\n"
+                    )
+                    if jsonl_legacy_fh is not None and legacy_payload is not None:
+                        jsonl_legacy_fh.write(
+                            json.dumps(legacy_payload, ensure_ascii=False) + "\n"
                         )
                     frame_index_list.append(
                         {
                             "frame_id": frame_id,
-                            "timestamp": timestamp,
                             "original_frame_index": original_idx,
-                            "n_wheels": len(ar_payload["wheels"]),
+                            "n_wheels": n_wheels,
                         }
                     )
                 else:
-                    json_path, target_path = _write_per_frame(
-                        out_dir, stem, original_idx, ar_payload, target_payload
+                    json_path, legacy_path = _write_per_frame(
+                        out_dir, stem, original_idx, confirmed_payload, legacy_payload
                     )
                     frame_index_list.append(
                         {
                             "frame_id": frame_id,
-                            "timestamp": timestamp,
                             "original_frame_index": original_idx,
-                            "n_wheels": len(ar_payload["wheels"]),
+                            "n_wheels": n_wheels,
                             "json": str(json_path),
-                            "target_json": str(target_path) if target_path else None,
+                            "legacy_json": str(legacy_path) if legacy_path else None,
                         }
                     )
             finally:
@@ -577,8 +669,8 @@ def _run_video(
         cap.release()
         if jsonl_fh is not None:
             jsonl_fh.close()
-        if jsonl_target_fh is not None:
-            jsonl_target_fh.close()
+        if jsonl_legacy_fh is not None:
+            jsonl_legacy_fh.close()
 
     return {
         "fps_used": fps_used,
@@ -651,7 +743,8 @@ def main() -> None:
         "started_at": started_at,
         "thresholds": {"conf": args.conf, "iou": args.iou, "max_det": args.max_det},
         "output_mode": "combined_jsonl" if args.combined_jsonl else "per_frame",
-        "target_schema_emitted": bool(args.target_schema),
+        "primary_schema": "confirmed",
+        "legacy_companion_emitted": bool(args.emit_legacy or args.target_schema),
         "frame_index": stats["frame_index"],
     }
     summary_path = args.out_dir / "batch_summary.json"
@@ -669,7 +762,8 @@ def main() -> None:
     print(f"Wheels detected:      {stats['wheels_detected_total']}")
     print(f"Duration (s):         {duration_seconds:.2f}")
     print(f"Output mode:          {summary['output_mode']}")
-    print(f"Target schema:        {summary['target_schema_emitted']}")
+    print(f"Primary schema:       {summary['primary_schema']}")
+    print(f"Legacy companion:     {summary['legacy_companion_emitted']}")
     print(f"Summary JSON:         {summary_path}")
 
 

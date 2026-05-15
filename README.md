@@ -118,14 +118,15 @@ pair the response with the camera transform it saved at capture time.
 }
 ```
 
-> **Implementation status.** The schema above is the *target* aligned
-> with the AR spec. The current `src/infer_image.py` still emits a
-> transitional shape (`wheel_bbox` xyxy + an array of
-> `{name, xy, visibility, confidence}` keypoints named
-> `rim_left` / `rim_right` / `disc_bottom`). Aligning the inference
-> code to the target schema is tracked as a code-side follow-up — this
-> README documents what AR will eventually receive, not what
-> `infer_image.py` writes today.
+> **Implementation status (2026-05-14).** Both `src/infer_image.py`
+> and `src/infer_batch.py` write the **confirmed AR schema** above as
+> the primary JSON. The legacy intermediate shape (`wheel_bbox`,
+> per-keypoint `visibility`/`confidence`, `warnings`, image meta) is
+> emitted only when `--emit-legacy` (batch) or by default into
+> `<stem>_legacy.json` (single-image) for ML-side debugging; AR never
+> reads it. **Schema is contract-aligned; A/B/C semantics on
+> `wheel_v4_real` are still legacy rim, not the 2026-05-13 floor-ray
+> rule — see `outputs/real_infer_geometry_audit.md`.**
 
 ### Keypoints
 

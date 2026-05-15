@@ -1,0 +1,16 @@
+# YOLO-pose config for the combined (cartoon + real seed) dataset used to
+# fine-tune wheel_v3 → wheel_v4_real.
+#
+# Built by scripts/build_combined_dataset.py — real images are duplicated
+# x20 in train to lift their per-epoch sampling weight against the 240
+# cartoon train samples. See script header for rationale.
+
+path: data/wheel_combined_dataset
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

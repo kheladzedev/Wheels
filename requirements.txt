@@ -5,3 +5,8 @@ matplotlib>=3.8.0
 pandas>=2.2.0
 pillow>=10.2.0
 pyyaml>=6.0.1
+# torch / torchvision: pulled in transitively by ultralytics, but the
+# src/models/ production pipeline (MobileNetV2-skipless) imports them
+# directly. Pinning explicitly so reinstalls don't drift.
+torch>=2.2.0
+torchvision>=0.17.0

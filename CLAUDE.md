@@ -127,6 +127,11 @@ VSBL/
     visualize_predictions.py           # render a saved AR JSON onto an image
     export_model.py                    # PT → ONNX / CoreML / TFLite
     eval_keypoints.py                  # keypoint metrics
+    models/                            # custom production pipeline (torch allowed here)
+      __init__.py
+      mobilenetv2_skipless_pose.py     # MobileNetV2-skipless wheel pose detector
+      matcher.py                       # center-point GT → cell assignment
+      loss.py                          # focal cls + giou bbox + oks kpt + bce vis
   data/
     incoming/                          # raw batches (do not commit)
       android_plugin/                  # plugin contract
@@ -211,9 +216,12 @@ VSBL/
   fixed order, `flip_idx: [1, 0, 2]`. Adding a 4th point is an
   AR-team decision (open in `docs/OPEN_QUESTIONS_AR_SPEC.md`).
 - **Dependencies**: stdlib + `opencv-python` + `numpy` + `pytest` +
-  `ultralytics` are the only deps allowed without sign-off. No torch
-  outside ultralytics. No tracking libs (DeepSORT etc.) — tracking is
-  not ours.
+  `ultralytics` are the global deps. **Direct `torch` / `torchvision`
+  imports are scoped to `src/models/`** (the custom production
+  pipeline — MobileNetV2-skipless and any future from-scratch model).
+  Outside `src/models/` the rule still stands: no direct torch
+  imports, ultralytics only. No tracking libs (DeepSORT etc.) —
+  tracking is not ours.
 - **Git-ignored paths** — never commit `data/`, `runs/`, `outputs/*.jpg`,
   or model weights other than the baseline `yolo11n*.pt`.
 
