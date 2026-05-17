@@ -12,8 +12,8 @@ items from the most recent AR-team spec clarification, and
 ## Current confirmed target
 
 Confirmed by the AR team 2026-05-13. This is the authoritative shape;
-the "Target after AR spec clarification" draft further down predates
-the confirmation and remains only for context.
+older `point_*` / `bbox_xywh` drafts are obsolete and retained only in
+legacy/debug artifacts.
 
 ML returns per-frame, per-wheel detections in pixel coordinates. AR
 owns everything 3D.
@@ -52,6 +52,10 @@ owns everything 3D.
 No `timestamp`, no `track_id`, no per-keypoint confidence, no
 `visibility` flag, no 3D coordinates from ML. Partially occluded
 wheels are dropped at annotation time and not emitted at inference.
+Inference also drops wheels whose predicted A/B/C violate the confirmed
+floor-ray geometry (A left of B, A/B in the lower bbox band, C above
+the A/B floor-ray line), because the confirmed JSON has no uncertainty
+field that could safely carry a "needs review" state.
 
 **First target platform: Android** (TFLite / LiteRT). See
 `docs/ANDROID_FIRST_MODEL_PLAN.md`.
@@ -60,114 +64,20 @@ Full responsibility split: `docs/AR_ML_CONTRACT.md`. Keypoint
 definitions: `docs/KEYPOINT_SPEC.md`. Plugin data we expect to
 ingest: `docs/PLUGIN_DATA_EXPECTATION.md`.
 
-## Target after AR spec clarification
+## Historical pre-confirmation context
 
-The latest AR-team spec ("Тестовый AR-пайплайн без нейросети") describes
-a mock pipeline that uses three fixed screen points (A, B, C) to drive
-raycasts and reconstruct one vertical plane plus a disc-bottom anchor
-per wheel. **ML's job is to replace that mock**: emit those same three
-points *per detected wheel* so AR can run the same raycast + RANSAC
-flow without manual screen alignment.
+Earlier drafts used `point_a` / `point_b` /
+`point_c_disc_bottom`, `bbox_xywh`, `timestamp`, `visibility`, and
+per-keypoint confidence. Those fields are obsolete for AR consumption.
+They may still appear in legacy/debug artifacts such as
+`<stem>_legacy.json` or the deprecated `--target-schema` preview, but
+the production contract is the confirmed JSON shown above.
 
-Two things changed against earlier iterations of this repo:
-
-- The very first deliverable here was a **bbox-only baseline** (wheel
-  bbox + rim bbox per wheel). That existed as an infrastructure
-  sanity-check — exercising ingestion, training, and inference end to
-  end on synthetic data — not as the production output. It is **not**
-  the target contract.
-- The current target is a **3-keypoint per-wheel output**: `point_a`
-  (left) and `point_b` (right) for plane recovery via raycast + RANSAC,
-  and `point_c_disc_bottom` (lowest point of the metal disc) for the
-  installation height. See `docs/KEYPOINT_SPEC.md` and
-  `docs/AR_ML_CONTRACT.md` for the full target spec, and
-  `docs/OPEN_QUESTIONS_AR_SPEC.md` for the confirmation items still
-  open with the AR team (final naming, fixed-vs-per-wheel A/B,
-  tracking responsibility, error budget, Unreal export).
-
-## Output JSON contract (target)
-
-Per-frame, per-wheel keypoints plus `frame_id` / `timestamp` so AR can
-pair the response with the camera transform it saved at capture time.
-
-```json
-{
-  "frame_id": "frame_0001",
-  "timestamp": 123.456,
-  "wheels": [
-    {
-      "bbox_xywh": [x, y, w, h],
-      "confidence": 0.94,
-      "keypoints": {
-        "point_a": [x1, y1],
-        "point_b": [x2, y2],
-        "point_c_disc_bottom": [x3, y3]
-      },
-      "keypoints_confidence": {
-        "point_a": 0.91,
-        "point_b": 0.90,
-        "point_c_disc_bottom": 0.88
-      },
-      "visibility": {
-        "point_a": 2,
-        "point_b": 2,
-        "point_c_disc_bottom": 2
-      }
-    }
-  ]
-}
-```
-
-> **Implementation status (2026-05-14).** Both `src/infer_image.py`
-> and `src/infer_batch.py` write the **confirmed AR schema** above as
-> the primary JSON. The legacy intermediate shape (`wheel_bbox`,
-> per-keypoint `visibility`/`confidence`, `warnings`, image meta) is
-> emitted only when `--emit-legacy` (batch) or by default into
-> `<stem>_legacy.json` (single-image) for ML-side debugging; AR never
-> reads it. **Schema is contract-aligned; A/B/C semantics on
-> `wheel_v4_real` are still legacy rim, not the 2026-05-13 floor-ray
-> rule — see `outputs/real_infer_geometry_audit.md`.**
-
-### Keypoints
-
-The three keypoints are emitted in a fixed order. Working names below;
-final names pending AR-team confirmation (`docs/OPEN_QUESTIONS_AR_SPEC.md`
-§1, §3).
-
-| Index | Target name             | Legacy literal (YOLO) | Definition |
-|-------|-------------------------|-----------------------|------------|
-| 0     | `point_a_floor_ray`     | `rim_left` (drifted)  | **Left floor-ray point.** Screen-space pixel that AR raycasts onto the floor plane near the wheel footprint. One anchor of the vertical wheel plane. **Not** on the metal rim. |
-| 1     | `point_b_floor_ray`     | `rim_right` (drifted) | **Right floor-ray point.** Mirror of A; together with A defines the wheel-plane base via RANSAC across K frames. **Not** on the metal rim. |
-| 2     | `c_disc_bottom`         | `disc_bottom`         | Physical lowest point of the metal rim / disc. AR raycasts this onto the recovered plane to get the disc's installation height. |
-
-> **A/B semantic revision 2026-05-14.** The literal label strings
-> `rim_left` / `rim_right` persist in legacy code for backward
-> compatibility (`postprocess_wheels.KEYPOINT_NAMES`,
-> `configs/dataset.yaml`, `convert_incoming_to_yolo.py`), but A and B
-> now denote floor-ray points, **not** rim edges. Legacy bundles
-> annotated against the old "rim edge" wording must be re-annotated
-> before they can train against the new contract.
-
-`visibility` follows COCO-pose: `0` = not labelled / not visible (skip in
-training loss), `1` = occluded, `2` = visible.
-
-`keypoints_confidence` is per-keypoint, separate from the wheel-level
-detection `confidence`. AR uses it to weight observations or drop bad
-keypoints before RANSAC.
-
-### What the AR layer consumes
-
-Only the keypoints, visibility, and `frame_id` are load-bearing for AR:
-
-- `keypoints.point_a` and `keypoints.point_b` → raycast → RANSAC → wheel
-  plane.
-- `keypoints.point_c_disc_bottom` → raycast onto the recovered plane →
-  installation height.
-- `frame_id` → match with the saved camera transform.
-
-`bbox_xywh`, wheel-level `confidence`, and `keypoints_confidence` are
-supporting metadata for AR-side filtering, debug overlays, and
-RANSAC-weight tuning.
+The important semantic revision remains: legacy literal training names
+`rim_left` / `rim_right` persist in some YOLO-pose label files for
+backward compatibility, but their content must now be **floor-ray A/B
+points**, not metal-rim edges. Any data or model trained before that
+semantic change is schema-compatible smoke only, not AR-ready.
 
 ## Current baseline (`wheel_baseline_v1`, 2026-05-13)
 
@@ -325,8 +235,9 @@ Artifacts written to `outputs/`:
 - `outputs/<stem>_raw.json` — Flat list of raw pose detections (after
   the YOLO confidence + NMS filters). Useful for ML-side debugging only.
 - `outputs/<stem>_final_pred.jpg` — AR-final view (default): wheel bbox
-  + 3 named keypoints + per-keypoint confidence. Drawn from the legacy
-  payload (richer overlay than the confirmed shape allows).
+  + named A/B/C keypoints. Drawn from the **confirmed** payload, so any
+  wheel filtered out for occlusion or invalid floor-ray geometry is not
+  shown here.
 - `outputs/<stem>_raw_pred.jpg` — ML-debug view (when `--viz-mode raw|both`).
 
 To run with a fine-tuned model and explicit frame metadata:
@@ -349,8 +260,8 @@ the AR client supplies the explicit `--frame-id`.
 > legacy/transitional shape. After the AR team confirmed the contract,
 > `<stem>.json` is the confirmed schema and the legacy shape moved to
 > `<stem>_legacy.json`. Consumers should switch to `<stem>.json` and
-> the new field names — see `tests/test_ar_contract.py` for the
-> authoritative invariants.
+> the confirmed field names — see `tests/test_confirmed_ar_schema_shape.py`
+> and `tests/test_ar_contract.py` for the authoritative invariants.
 
 ### Inference thresholds
 
@@ -399,7 +310,7 @@ python src/check_dataset.py --dataset-root data/wheel_dataset
 
 # 4. Tiny training run to confirm train_yolo.py works end-to-end
 python src/train_yolo.py \
-  --data configs/dataset.yaml \
+  --data configs/pose_dataset.yaml \
   --model yolo11n-pose.pt \
   --epochs 3 \
   --device mps \
@@ -501,7 +412,7 @@ python src/preview_labels.py --dataset-root data/wheel_dataset --split train --c
 
 ```bash
 python src/train_yolo.py \
-  --data configs/dataset.yaml \
+  --data configs/pose_dataset.yaml \
   --model yolo11n-pose.pt \
   --epochs 50 \
   --device mps \
@@ -509,7 +420,9 @@ python src/train_yolo.py \
   --name wheel_baseline
 ```
 
-`train_yolo.py` guards against accidentally passing a non-pose checkpoint —
+`train_yolo.py` now runs the confirmed floor-ray dataset preflight before
+constructing YOLO. Legacy rim-edge datasets fail fast instead of starting
+training. It also guards against accidentally passing a non-pose checkpoint:
 keypoint training requires `-pose` weights (`yolo11n-pose.pt`,
 `yolo11s-pose.pt`, etc.).
 
@@ -618,8 +531,8 @@ open outputs/keypoint_preview
   bbox order `x1 < x2` / `y1 < y2`. Exits non-zero if any ERROR
   fires. WARNINGs (e.g. orphan annotations, point just outside bbox)
   do not fail.
-- The previewer draws orange bbox + green A / yellow B / red C
-  circles with labels.
+- The previewer draws orange bbox + red A / blue B / green C
+  circles with labels, matching the AR mock-spec board.
 
 See `docs/KEYPOINT_DATASET_FORMAT.md` for the full schema and rules.
 

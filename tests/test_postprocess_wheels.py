@@ -112,7 +112,7 @@ def test_target_schema_renames_keypoints_to_ar_target_names():
     det = _wheel(
         (10, 20, 60, 80),
         0.93,
-        kp_xys=[(15, 30), (55, 75), (35, 79)],
+        kp_xys=[(15, 70), (55, 72), (35, 60)],
         kp_visibilities=[2, 2, 1],
         kp_confs=[0.91, 0.90, 0.55],
     )
@@ -203,7 +203,7 @@ def test_to_confirmed_schema_renames_keypoints_to_ab_c_disc_bottom():
     det = _wheel(
         (10, 20, 60, 80),
         0.93,
-        kp_xys=[(15, 30), (55, 75), (35, 79)],
+        kp_xys=[(15, 70), (55, 72), (35, 60)],
         kp_visibilities=[2, 2, 2],
         kp_confs=[0.91, 0.90, 0.88],
     )
@@ -212,13 +212,13 @@ def test_to_confirmed_schema_renames_keypoints_to_ab_c_disc_bottom():
 
     w = confirmed["wheels"][0]
     assert set(w["points"].keys()) == {"a", "b", "c_disc_bottom"}
-    assert w["points"]["a"] == [15.0, 30.0]
-    assert w["points"]["b"] == [55.0, 75.0]
-    assert w["points"]["c_disc_bottom"] == [35.0, 79.0]
+    assert w["points"]["a"] == [15.0, 70.0]
+    assert w["points"]["b"] == [55.0, 72.0]
+    assert w["points"]["c_disc_bottom"] == [35.0, 60.0]
 
 
 def test_to_confirmed_schema_uses_bbox_xyxy_not_xywh():
-    det = _wheel((10, 20, 60, 80), 0.93, kp_xys=[(15, 30), (55, 75), (35, 79)])
+    det = _wheel((10, 20, 60, 80), 0.93, kp_xys=[(15, 70), (55, 72), (35, 60)])
     payload = build_ar_payload([det])
     confirmed = to_confirmed_schema(payload)
     w = confirmed["wheels"][0]
@@ -231,7 +231,7 @@ def test_to_confirmed_schema_drops_per_keypoint_metadata():
     det = _wheel(
         (0, 0, 100, 100),
         0.9,
-        kp_xys=[(10, 20), (90, 80), (50, 95)],
+        kp_xys=[(10, 85), (90, 86), (50, 68)],
         kp_visibilities=[2, 2, 2],
         kp_confs=[0.95, 0.92, 0.88],
     )
@@ -257,13 +257,13 @@ def test_to_confirmed_schema_skips_occluded_wheels():
     fully_visible = _wheel(
         (0, 0, 100, 100),
         0.95,
-        kp_xys=[(10, 10), (90, 10), (50, 95)],
+        kp_xys=[(10, 85), (90, 86), (50, 68)],
         kp_visibilities=[2, 2, 2],
     )
     has_occluded = _wheel(
         (200, 200, 300, 300),
         0.92,
-        kp_xys=[(210, 210), (290, 210), (250, 295)],
+        kp_xys=[(210, 285), (290, 286), (250, 268)],
         kp_visibilities=[2, 0, 2],
     )
     payload = build_ar_payload([fully_visible, has_occluded])
@@ -273,8 +273,51 @@ def test_to_confirmed_schema_skips_occluded_wheels():
     assert confirmed["wheels"][0]["bbox_xyxy"] == [0.0, 0.0, 100.0, 100.0]
 
 
+def test_to_confirmed_schema_skips_partially_visible_wheels():
+    fully_visible = _wheel(
+        (0, 0, 100, 100),
+        0.95,
+        kp_xys=[(10, 85), (90, 86), (50, 68)],
+        kp_visibilities=[2, 2, 2],
+    )
+    partially_visible = _wheel(
+        (200, 200, 300, 300),
+        0.92,
+        kp_xys=[(210, 285), (290, 286), (250, 268)],
+        kp_visibilities=[2, 1, 2],
+    )
+    payload = build_ar_payload([fully_visible, partially_visible])
+
+    confirmed = to_confirmed_schema(payload)
+
+    assert len(confirmed["wheels"]) == 1
+    assert confirmed["wheels"][0]["bbox_xyxy"] == [0.0, 0.0, 100.0, 100.0]
+
+
+def test_to_confirmed_schema_skips_bad_floor_ray_geometry():
+    good = _wheel(
+        (0, 0, 100, 100),
+        0.95,
+        kp_xys=[(10, 85), (90, 86), (50, 68)],
+        kp_visibilities=[2, 2, 2],
+    )
+    bad = _wheel(
+        (200, 200, 300, 300),
+        0.92,
+        # A/B are high in the bbox and C is below the floor-ray line.
+        kp_xys=[(210, 230), (290, 235), (250, 295)],
+        kp_visibilities=[2, 2, 2],
+    )
+    payload = build_ar_payload([good, bad])
+
+    confirmed = to_confirmed_schema(payload)
+
+    assert len(confirmed["wheels"]) == 1
+    assert confirmed["wheels"][0]["bbox_xyxy"] == [0.0, 0.0, 100.0, 100.0]
+
+
 def test_to_confirmed_schema_omits_timestamp():
-    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(1, 1), (2, 2), (3, 3)])
+    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(10, 85), (90, 86), (50, 68)])
     payload = build_ar_payload([det], frame_id="f", timestamp=123.456)
     confirmed = to_confirmed_schema(payload)
     assert "timestamp" not in confirmed
@@ -287,14 +330,14 @@ def test_to_confirmed_schema_empty_wheels():
 
 
 def test_to_confirmed_schema_no_frame_id_omits_top_level_key():
-    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(1, 1), (2, 2), (3, 3)])
+    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(10, 85), (90, 86), (50, 68)])
     payload = build_ar_payload([det])
     confirmed = to_confirmed_schema(payload)
     assert set(confirmed.keys()) == {"wheels"}
 
 
 def test_to_confirmed_schema_per_wheel_keys_exactly():
-    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(1, 1), (2, 2), (3, 3)])
+    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(10, 85), (90, 86), (50, 68)])
     payload = build_ar_payload([det])
     confirmed = to_confirmed_schema(payload)
     w = confirmed["wheels"][0]
@@ -302,7 +345,7 @@ def test_to_confirmed_schema_per_wheel_keys_exactly():
 
 
 def test_to_confirmed_schema_all_values_are_python_floats():
-    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(10, 20), (90, 80), (50, 95)])
+    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(10, 85), (90, 86), (50, 68)])
     payload = build_ar_payload([det])
     confirmed = to_confirmed_schema(payload)
     w = confirmed["wheels"][0]

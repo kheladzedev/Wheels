@@ -5,12 +5,12 @@ Built for the plugin-converter output (`data/wheel_pose_dataset/`). Mirrors
 output directory so it doesn't clobber the legacy previews.
 
 Keypoint semantics (2026-05-14 revision — see docs/KEYPOINT_SPEC.md):
-    * A (green) — left floor-ray point. Screen-space raycast source
+    * A (red) — left floor-ray point. Screen-space raycast source
       onto the floor plane for the wheel-plane base. **Not** a
       metal-rim edge.
-    * B (yellow) — right floor-ray point. Mirror of A. **Not** a
+    * B (blue) — right floor-ray point. Mirror of A. **Not** a
       metal-rim edge.
-    * C (red) — lowest visible point of the metal rim / disc.
+    * C (green) — lowest visible point of the metal rim / disc.
 
 Visual labels remain the short tags "A" / "B" / "c_disc_bottom" so the
 overlay matches the YOLO-pose label-line layout 1:1.
@@ -37,9 +37,9 @@ CLASS_COLORS = {0: (0, 165, 255)}  # BGR — orange
 # Keypoint order matches the converter: a, b, c_disc_bottom.
 KEYPOINT_NAMES = ("a", "b", "c_disc_bottom")
 KEYPOINT_COLORS = (
-    (0, 255, 0),  # a — green
-    (0, 255, 255),  # b — yellow
-    (0, 0, 255),  # c_disc_bottom — red
+    (0, 0, 255),  # a — red
+    (255, 0, 0),  # b — blue
+    (0, 255, 0),  # c_disc_bottom — green
 )
 N_KEYPOINTS = 3
 FIELDS_PER_LINE = 5 + N_KEYPOINTS * 3

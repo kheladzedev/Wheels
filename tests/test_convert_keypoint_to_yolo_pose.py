@@ -492,9 +492,9 @@ def test_confirmed_schema_shape_unchanged_after_adapter_work(tmp_path: Path):
         "bbox": [10, 20, 110, 220],
         "confidence": 0.91,
         "keypoints": [
-            {"xy": [15.0, 30.0], "visibility": 2, "confidence": 0.9},
-            {"xy": [105.0, 30.0], "visibility": 2, "confidence": 0.9},
-            {"xy": [60.0, 215.0], "visibility": 2, "confidence": 0.88},
+            {"xy": [20.0, 200.0], "visibility": 2, "confidence": 0.9},
+            {"xy": [100.0, 202.0], "visibility": 2, "confidence": 0.9},
+            {"xy": [60.0, 170.0], "visibility": 2, "confidence": 0.88},
         ],
     }
     legacy = build_ar_payload([detection], frame_id="frame_42")

@@ -48,9 +48,9 @@ def _good_payload(stem: str) -> dict:
             {
                 "bbox_xyxy": [10.0, 10.0, 50.0, 50.0],
                 "points": {
-                    "a": [12.0, 30.0],
-                    "b": [48.0, 30.0],
-                    "c_disc_bottom": [30.0, 48.0],
+                    "a": [14.0, 46.0],
+                    "b": [46.0, 46.0],
+                    "c_disc_bottom": [30.0, 38.0],
                 },
             }
         ],
@@ -221,7 +221,7 @@ def test_check_keypoint_incoming_point_outside_bbox_within_tolerance_is_warning(
     root = _make_batch(tmp_path)
     bad = _good_payload("frame_0001")
     # bbox is (10, 10, 50, 50). a.x = 4 is 6 px outside x1 = 10 -> WARNING.
-    bad["wheels"][0]["points"]["a"] = [4.0, 30.0]
+    bad["wheels"][0]["points"]["a"] = [4.0, 46.0]
     _write_anno(root / "annotations" / "frame_0001.json", bad)
 
     rc = _run_check(root)
@@ -229,6 +229,25 @@ def test_check_keypoint_incoming_point_outside_bbox_within_tolerance_is_warning(
     assert rc == 0
     assert errors == 0
     assert warnings >= 1
+
+
+def test_check_keypoint_incoming_rejects_legacy_rim_edge_geometry(
+    tmp_path: Path, capsys
+) -> None:
+    root = _make_batch(tmp_path)
+    bad = _good_payload("frame_0001")
+    # Legacy rim semantics: A/B sit on the horizontal rim band above C.
+    bad["wheels"][0]["points"] = {
+        "a": [14.0, 26.0],
+        "b": [46.0, 26.0],
+        "c_disc_bottom": [30.0, 38.0],
+    }
+    _write_anno(root / "annotations" / "frame_0001.json", bad)
+
+    rc = _run_check(root)
+    errors, _ = _read_errors_count_via_capsys(capsys)
+    assert rc == 1
+    assert errors >= 1
 
 
 def test_check_keypoint_incoming_empty_wheels_is_ok(tmp_path: Path, capsys) -> None:

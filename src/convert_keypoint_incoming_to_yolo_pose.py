@@ -225,8 +225,10 @@ def assign_splits(
     shuffled = images[:]
     rng.shuffle(shuffled)
     n_val = int(round(len(shuffled) * val_ratio))
-    val_set = set(shuffled[:n_val])
-    return {p: ("val" if p in val_set else "train") for p in images}
+    assignment = {p: "train" for p in images}
+    for p in shuffled[:n_val]:
+        assignment[p] = "val"
+    return assignment
 
 
 def validate_and_convert_bbox(

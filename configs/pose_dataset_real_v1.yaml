@@ -9,9 +9,9 @@
 # The source bundle is produced by scripts/qa_real_v1.sh (manual QA
 # pass over the auto-drafts in data/incoming/real_v1/annotations).
 #
-# Same label format as configs/pose_dataset.yaml; the only delta is the
-# root path — semantics, keypoint order, flip_idx, and class list are
-# identical so existing tooling (train/val/eval/export) works unchanged.
+# Historical real-v1 config. This dataset predates the strict floor-ray
+# validator and must pass `src/check_yolo_pose_dataset.py` before it can
+# be used for training.
 
 path: data/wheel_pose_dataset_real_v1
 train: images/train
@@ -21,8 +21,8 @@ names:
   0: wheel
 
 # 3 keypoints per wheel, 3 dims each (x, y, visibility):
-#   kp0 = a              — left rim source (raycast left)
-#   kp1 = b              — right rim source (raycast right)
+#   kp0 = a              — left floor-ray point near the wheel footprint
+#   kp1 = b              — right floor-ray point near the wheel footprint
 #   kp2 = c_disc_bottom  — lowest visible point of the metal disc
 kpt_shape: [3, 3]
 

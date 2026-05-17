@@ -1,9 +1,10 @@
 # Plugin Data Expectation
 
-What we expect from the upcoming collection plugin (Android side,
-landing ~2026-05-13 evening per the AR team). This document tells the
-plugin author what shape of data ML wants to receive so we can ingest
-it directly without a custom adapter.
+What we expect from the upcoming collection plugin (Android / Unreal
+side). Latest AR-side answer on **2026-05-18**: the plugin can output
+essentially any collector field we request, but extra fields cost
+implementation time. This document tells the plugin author the minimal
+shape ML needs to ingest a batch directly without a custom adapter.
 
 ## Directory layout
 
@@ -55,6 +56,22 @@ detected wheel):
 ```
 
 Coordinates are in **pixels**, top-left origin.
+
+## Minimal acceptable collector output
+
+For a batch to be eligible for training, every emitted wheel must have:
+
+- `bbox_xyxy` around the full visible wheel: tyre + rim.
+- `points.a` / `points.b` as the left/right floor-ray points in the
+  final image coordinates.
+- `points.c_disc_bottom` as the visually lowest visible point of the
+  metal rim / disc, not the tyre contact patch.
+- `frame_id` matching the image stem.
+
+The earlier limited raw Unreal export (`0001.zip`) is not enough for
+production training if it lacks full-wheel bbox or if its `Center`
+point is a contact point rather than the true `c_disc_bottom`. Such a
+batch may be kept for parser, preview, and service smoke tests only.
 
 ### Required fields
 

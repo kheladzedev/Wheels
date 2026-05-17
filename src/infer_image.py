@@ -13,8 +13,9 @@ JSON artifacts per image:
 
 Plus one or two visualizations depending on --viz-mode (default: final):
   - <stem>_raw_pred.jpg   — wheel bboxes with keypoints overlaid (ML debug).
-  - <stem>_final_pred.jpg — AR-final view: wheel bboxes + 3 named keypoints +
-                             per-keypoint confidence. This is what AR sees.
+  - <stem>_final_pred.jpg — AR-final view rendered from the confirmed JSON:
+                             wheel bboxes + named A/B/C keypoints. AR
+                             consumes <stem>.json, not the JPG overlay.
 
 Confidence filtering is enforced in three places (defence in depth):
   1. model.predict(conf=...) — YOLO's own filter.
@@ -48,13 +49,17 @@ from postprocess_wheels import (
 
 WHEEL_CLASS_NAMES = {"wheel"}
 
-# BGR colors.
+# BGR colors. Keypoint colours match the AR mock spec board: A=red, B=blue,
+# C=green. Internally the training names are still rim_left/rim_right/
+# disc_bottom for backward compatibility, but overlays should show the
+# AR-facing A/B/C contract.
 COLOR_BBOX = (255, 128, 0)
 COLOR_KP = (
-    (0, 255, 0),  # rim_left — green
-    (0, 200, 255),  # rim_right — yellow/cyan
-    (0, 0, 255),  # disc_bottom — red
+    (0, 0, 255),  # A / rim_left — red
+    (255, 0, 0),  # B / rim_right — blue
+    (0, 255, 0),  # C / disc_bottom — green
 )
+DISPLAY_KP_NAMES = ("A", "B", "C")
 COLOR_LABEL = (255, 255, 255)
 
 
@@ -101,7 +106,7 @@ def parse_args() -> argparse.Namespace:
         "--timestamp",
         type=float,
         default=None,
-        help="Capture timestamp (Unix seconds) echoed in the AR JSON. "
+        help="Capture timestamp (Unix seconds) written only to legacy/debug JSON. "
         "Defaults to time.time() at inference start.",
     )
     p.add_argument(
@@ -201,8 +206,8 @@ def draw_raw_overlay(image_bgr, detections: list[dict]):
     return img
 
 
-def draw_final_overlay(image_bgr, wheels: list[dict], conf_threshold: float):
-    """Render bbox + keypoints with non-overlapping labels.
+def draw_final_overlay(image_bgr, wheels: list[dict]):
+    """Render confirmed-schema bbox + keypoints with non-overlapping labels.
 
     Anchors each keypoint's label at a distinct offset (top / right /
     bottom of the dot) so small wheels don't get a wall of overlapping
@@ -210,11 +215,9 @@ def draw_final_overlay(image_bgr, wheels: list[dict], conf_threshold: float):
     too narrow to leave room.
     """
     img = image_bgr.copy()
-    h, w_img = img.shape[:2]
+    w_img = img.shape[1]
     for w in wheels:
-        if w["confidence"] < conf_threshold:
-            continue
-        x1, y1, x2, y2 = (int(round(v)) for v in w["wheel_bbox"])
+        x1, y1, x2, y2 = (int(round(v)) for v in w["bbox_xyxy"])
         cv2.rectangle(img, (x1, y1), (x2, y2), COLOR_BBOX, 2)
         cv2.putText(
             img,
@@ -230,21 +233,19 @@ def draw_final_overlay(image_bgr, wheels: list[dict], conf_threshold: float):
         # vertically. This avoids the labels piling up inside small wheels.
         label_x = min(x2 + 6, w_img - 120)
         label_y_start = max(y1 + 12, 14)
-        for i, kp in enumerate(w["keypoints"]):
-            if kp["visibility"] == 0:
-                continue
-            kx, ky = (int(round(v)) for v in kp["xy"])
+        for i, key in enumerate(("a", "b", "c_disc_bottom")):
+            point = w["points"][key]
+            kx, ky = (int(round(v)) for v in point)
             color = COLOR_KP[i % len(COLOR_KP)]
             cv2.circle(img, (kx, ky), 4, color, -1)
-            kp_conf = kp.get("confidence")
-            label = f"{kp['name']} {kp_conf:.2f}" if kp_conf is not None else kp["name"]
+            display_name = DISPLAY_KP_NAMES[i] if i < len(DISPLAY_KP_NAMES) else key
             label_y = label_y_start + i * 14
             # Short leader line from keypoint to its label so the eye
             # can still associate them when the bbox is small.
             cv2.line(img, (kx, ky), (label_x - 2, label_y - 4), color, 1, cv2.LINE_AA)
             cv2.putText(
                 img,
-                label,
+                display_name,
                 (label_x, label_y),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.4,
@@ -405,7 +406,7 @@ def main() -> None:
     if args.viz_mode in ("final", "both"):
         cv2.imwrite(
             str(final_vis_path),
-            draw_final_overlay(original, legacy_payload["wheels"], args.conf),
+            draw_final_overlay(original, confirmed_payload["wheels"]),
         )
         written_images.append(final_vis_path)
 

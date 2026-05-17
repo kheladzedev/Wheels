@@ -8,8 +8,9 @@ Per the AR spec (https://docs.google.com/document/d/1HwMfJYc3eWaovN183370iWYmLjT
   - ML returns per-frame, per-wheel keypoints in pixel coordinates.
   - AR does raycast, RANSAC, plane reconstruction, K-frame accumulation,
     and cross-frame association. ML stays out of 3D.
-  - Each response carries the input's `frame_id` (or timestamp) so AR can
+  - Each confirmed response carries the input's `frame_id` so AR can
     pair it back with the camera transform it saved at capture time.
+    Timestamp is retained only in the legacy/debug payload.
 
 The three keypoints are always in this order:
   index 0 = rim_left
@@ -41,13 +42,85 @@ INTERNAL_TO_TARGET_KP = {
 
 # Mapping from internal/training keypoint names to the AR-team **confirmed**
 # naming (response 2026-05-13, see docs/AR_ML_CONTRACT.md "JSON shape").
-# Shorter, flat keys; used only by `to_confirmed_schema` behind
-# `infer_image.py --confirmed-schema`. Independent of INTERNAL_TO_TARGET_KP.
+# Shorter, flat keys; used by the primary output path via `to_confirmed_schema`.
+# Independent of INTERNAL_TO_TARGET_KP.
 INTERNAL_TO_CONFIRMED_KP = {
     "rim_left": "a",
     "rim_right": "b",
     "disc_bottom": "c_disc_bottom",
 }
+
+CONFIRMED_POINT_KEYS = ("a", "b", "c_disc_bottom")
+FLOOR_RAY_MIN_REL_Y = 0.80
+DISC_BOTTOM_MIN_REL_Y = 0.50
+MIN_FLOOR_RAY_WIDTH_FRACTION = 0.50
+
+
+def confirmed_geometry_issues(wheel: dict) -> list[str]:
+    """Return floor-ray geometry issues that make a wheel unsafe for AR.
+
+    The confirmed schema has no uncertainty fields. A wheel that violates the
+    A/B/C geometry would look "certain" to the AR side, so it must be filtered
+    before the primary JSON is emitted.
+    """
+    issues: list[str] = []
+    bbox = wheel.get("wheel_bbox")
+    if not (isinstance(bbox, list) and len(bbox) == 4):
+        return ["missing wheel_bbox[4]"]
+    try:
+        x1, y1, x2, y2 = (float(v) for v in bbox)
+    except (TypeError, ValueError):
+        return ["wheel_bbox contains non-numeric values"]
+    if x1 >= x2 or y1 >= y2:
+        return ["wheel_bbox is degenerate"]
+
+    points: dict[str, list[float]] = {}
+    for kp in wheel.get("keypoints", []):
+        target_name = INTERNAL_TO_CONFIRMED_KP.get(kp.get("name"))
+        if target_name is None:
+            continue
+        xy = kp.get("xy")
+        if not (isinstance(xy, list) and len(xy) == 2):
+            issues.append(f"{target_name} missing xy[2]")
+            continue
+        try:
+            px, py = float(xy[0]), float(xy[1])
+        except (TypeError, ValueError):
+            issues.append(f"{target_name} contains non-numeric values")
+            continue
+        points[target_name] = [px, py]
+
+    for key in CONFIRMED_POINT_KEYS:
+        if key not in points:
+            issues.append(f"missing points.{key}")
+            continue
+        px, py = points[key]
+        if not (x1 <= px <= x2 and y1 <= py <= y2):
+            issues.append(f"points.{key} outside bbox")
+    if issues:
+        return issues
+
+    a = points["a"]
+    b = points["b"]
+    c = points["c_disc_bottom"]
+    width = x2 - x1
+    height = y2 - y1
+    a_rel_y = (a[1] - y1) / height
+    b_rel_y = (b[1] - y1) / height
+    c_rel_y = (c[1] - y1) / height
+    ab_sep = (b[0] - a[0]) / width
+
+    if a[0] >= b[0]:
+        issues.append("A is not left of B")
+    if ab_sep < MIN_FLOOR_RAY_WIDTH_FRACTION:
+        issues.append("A/B horizontal separation is too small")
+    if min(a_rel_y, b_rel_y) < FLOOR_RAY_MIN_REL_Y:
+        issues.append("A/B are not on the lower floor-ray band")
+    if c_rel_y <= DISC_BOTTOM_MIN_REL_Y:
+        issues.append("C is not in the lower half of the wheel bbox")
+    if c[1] >= min(a[1], b[1]):
+        issues.append("C is not above the A/B floor-ray line")
+    return issues
 
 
 def build_ar_payload(
@@ -193,9 +266,9 @@ def to_confirmed_schema(ar_payload: dict) -> dict:
     timestamp. Drops `image`, `image_size`, `thresholds`, `stats`,
     `warnings`. Bbox stays xyxy (already xyxy in legacy).
 
-    Wheels whose any internal keypoint had `visibility == 0` are
+    Wheels whose any internal keypoint had `visibility < 2` are
     SKIPPED (the confirmed schema represents only fully-visible
-    wheels). If a wheel had three valid keypoints with visibility >= 1
+    wheels). If a wheel had three valid keypoints with visibility == 2
     in the legacy payload, all three are emitted as [x, y].
     """
     confirmed: dict = {}
@@ -205,8 +278,11 @@ def to_confirmed_schema(ar_payload: dict) -> dict:
 
     for w in ar_payload.get("wheels", []):
         kps = w.get("keypoints", [])
-        # Drop the entire wheel if any keypoint was occluded (visibility=0).
-        if any(int(kp.get("visibility", 0)) == 0 for kp in kps):
+        # Confirmed AR JSON has no visibility field, so only fully visible
+        # wheels can be emitted without hiding uncertainty from the AR side.
+        if any(int(kp.get("visibility", 0)) < 2 for kp in kps):
+            continue
+        if confirmed_geometry_issues(w):
             continue
 
         x1, y1, x2, y2 = w["wheel_bbox"]

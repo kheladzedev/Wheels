@@ -1,0 +1,57 @@
+{
+  "model": "runs/pose/wheel_v2/weights/best.pt",
+  "data": "configs/dataset.yaml",
+  "split": "val",
+  "device": "mps",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 25,
+    "pred_wheels_above_conf": 29,
+    "matched": 25,
+    "false_negatives": 0,
+    "false_positives": 4,
+    "images": 8
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 9.453388872519428,
+      "mean": 9.698559591466017,
+      "p95": 18.346276027588797,
+      "p99": 18.856525778115422,
+      "n": 25
+    },
+    "point_b": {
+      "median": 25.301977493924756,
+      "mean": 25.63649065072893,
+      "p95": 32.5971164512303,
+      "p99": 42.81998243459692,
+      "n": 25
+    },
+    "point_c_disc_bottom": {
+      "median": 22.523949205290357,
+      "mean": 26.032605244462488,
+      "p95": 42.105405559229645,
+      "p99": 45.17581801709192,
+      "n": 25
+    }
+  },
+  "oks": {
+    "mean": 0.13033661233287652,
+    "n": 25
+  },
+  "rates": {
+    "false_negative_rate": 0.0,
+    "false_positive_rate": 0.13793103448275862
+  }
+}

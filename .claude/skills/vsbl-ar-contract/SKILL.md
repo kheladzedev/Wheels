@@ -6,8 +6,9 @@ description: Use whenever a change might touch the ML→AR JSON contract — add
 # VSBL — confirmed AR/ML contract
 
 Source of truth for the ML→AR JSON shape. Anchored at **2026-05-13**
-spec confirmation. If a change conflicts with what's below, the change
-is wrong unless the AR team signed off in
+spec confirmation and the **2026-05-18** Unreal-side follow-up. If a
+change conflicts with what's below, the change is wrong unless the AR
+team signed off in
 `docs/OPEN_QUESTIONS_AR_SPEC.md`.
 
 ## Required output (per inference call)

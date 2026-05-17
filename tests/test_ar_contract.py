@@ -71,7 +71,7 @@ def _fully_loaded_payload() -> dict:
     det = _wheel(
         bbox=(10, 20, 60, 80),
         conf=0.93,
-        kp_xys=[(15, 30), (55, 75), (35, 79)],
+        kp_xys=[(15, 70), (55, 72), (35, 60)],
         kp_visibilities=[2, 2, 2],
         kp_confs=[0.91, 0.90, 0.88],
     )
@@ -585,14 +585,14 @@ def test_confirmed_skips_occluded_wheels():
     fully_visible = _wheel(
         bbox=(0, 0, 100, 100),
         conf=0.95,
-        kp_xys=[(10, 10), (90, 10), (50, 95)],
+        kp_xys=[(10, 85), (90, 86), (50, 68)],
         kp_visibilities=[2, 2, 2],
         kp_confs=[0.9, 0.9, 0.9],
     )
     partially_occluded = _wheel(
         bbox=(200, 200, 300, 300),
         conf=0.92,
-        kp_xys=[(210, 210), (290, 210), (250, 295)],
+        kp_xys=[(210, 285), (290, 286), (250, 268)],
         kp_visibilities=[2, 0, 2],
         kp_confs=[0.9, 0.1, 0.9],
     )

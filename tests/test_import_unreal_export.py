@@ -104,16 +104,16 @@ def _kp_text(right, left, center) -> str:
 def test_try_build_wheel_valid():
     summary = imp.ImportSummary()
     wheel = imp._try_build_wheel(
-        _kp_text((100.0, 200.0), (300.0, 200.0), (200.0, 250.0)),
+        _kp_text((100.0, 420.0), (300.0, 420.0), (200.0, 330.0)),
         2048,
         2048,
         80,
         summary,
     )
     assert wheel is not None
-    assert wheel["points"]["a"] == [100.0, 200.0]
-    assert wheel["points"]["b"] == [300.0, 200.0]
-    assert wheel["points"]["c_disc_bottom"] == [200.0, 250.0]
+    assert wheel["points"]["a"] == [100.0, 420.0]
+    assert wheel["points"]["b"] == [300.0, 420.0]
+    assert wheel["points"]["c_disc_bottom"] == [200.0, 330.0]
     assert len(wheel["bbox_xyxy"]) == 4
     # Drop counters unchanged.
     assert all(v == 0 for v in summary.drop_counts.values())
@@ -190,7 +190,7 @@ def test_try_build_wheel_points_inside_built_bbox():
     """The validator allows 5 px slack — but a margin of 80 guarantees room."""
     summary = imp.ImportSummary()
     wheel = imp._try_build_wheel(
-        _kp_text((500.0, 500.0), (600.0, 500.0), (550.0, 540.0)),
+        _kp_text((500.0, 700.0), (700.0, 700.0), (600.0, 610.0)),
         2048,
         2048,
         80,
@@ -219,7 +219,7 @@ def _build_fake_export(root: Path):
     cv2.imwrite(str(root / "Images/0.jpg"), img)
     (root / "Ground/0.txt").write_text("DeltaZ{200.0},Roll:0.0,Pitch:60.0,FOV:55.0")
     (root / "keyPoint/0").mkdir()
-    _write_kp(root / "keyPoint/0/0.txt", (100.0, 200.0), (300.0, 200.0), (200.0, 250.0))
+    _write_kp(root / "keyPoint/0/0.txt", (100.0, 420.0), (300.0, 420.0), (200.0, 330.0))
     _write_kp(root / "keyPoint/0/1.txt", (0.0, 0.0), (0.0, 0.0), (0.0, 0.0))
 
     # frame 1: 1 OOB
@@ -270,9 +270,9 @@ def test_import_end_to_end(tmp_path: Path):
     assert a0["frame_id"] == "0"
     assert a0["image"] == "0.jpg"
     assert len(a0["wheels"]) == 1
-    assert a0["wheels"][0]["points"]["a"] == [100.0, 200.0]
-    assert a0["wheels"][0]["points"]["b"] == [300.0, 200.0]
-    assert a0["wheels"][0]["points"]["c_disc_bottom"] == [200.0, 250.0]
+    assert a0["wheels"][0]["points"]["a"] == [100.0, 420.0]
+    assert a0["wheels"][0]["points"]["b"] == [300.0, 420.0]
+    assert a0["wheels"][0]["points"]["c_disc_bottom"] == [200.0, 330.0]
 
     a3 = json.loads((out_root / "annotations/3.json").read_text())
     assert a3["wheels"] == []

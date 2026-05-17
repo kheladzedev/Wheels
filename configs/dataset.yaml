@@ -1,4 +1,6 @@
-# YOLO-pose dataset config for AR wheel fitting.
+# Legacy YOLO-pose dataset config for the pre-floor-ray manual_sample flow.
+# Do not use for confirmed AR training unless it passes
+# `src/check_dataset.py`; current checked-in data is known legacy rim geometry.
 # Layout (see docs/DATASET_SPEC.md):
 #
 #   data/wheel_dataset/
@@ -24,8 +26,8 @@ names:
   0: wheel
 
 # 3 keypoints per wheel, 3 dims each (x, y, visibility):
-#   kp0 = rim_left   — leftmost visible point on the metal rim
-#   kp1 = rim_right  — rightmost visible point on the metal rim
+#   kp0 = rim_left   — legacy literal; must now contain the left floor-ray point
+#   kp1 = rim_right  — legacy literal; must now contain the right floor-ray point
 #   kp2 = disc_bottom — physical lowest point of the metal disc (height anchor)
 # Left + right (not top + bottom) is required because the AR side does
 # raycast + RANSAC to reconstruct the wheel plane. Top + bottom would lie

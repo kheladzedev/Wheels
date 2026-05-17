@@ -21,7 +21,8 @@ association. Those are AR-client responsibilities.
 
 ## Current confirmed AR/ML contract
 
-Confirmed by the AR team **2026-05-13**. Authoritative shape for the
+Confirmed by the AR team **2026-05-13** and re-confirmed by the
+Unreal-side follow-up **2026-05-18**. Authoritative shape for the
 response. Per-frame, per-wheel, in pixel coordinates:
 
 ```json
@@ -80,11 +81,10 @@ items still on the AR team: `docs/OPEN_QUESTIONS_AR_SPEC.md`.
 ## Current target output
 
 Production response from `src/infer_image.py` and `src/postprocess_wheels.py`
-must match the confirmed shape above exactly. The transitional output
-some scripts emit today (`wheel_bbox` xyxy, named keypoints with
-`visibility` / `keypoints_confidence`) is being aligned to the confirmed
-schema as a code-side follow-up — **target = confirmed schema**, not the
-transitional one.
+must match the confirmed shape above exactly. Legacy/debug outputs may
+still contain `wheel_bbox`, per-keypoint `visibility`, and per-keypoint
+confidence, but AR must not consume those files. **Target = confirmed
+schema**, not the legacy/debug shape.
 
 Dataset side: YOLO-pose, one class (`wheel`), three keypoints per wheel.
 Internal training labels still carry the literal strings `rim_left` /
@@ -92,12 +92,12 @@ Internal training labels still carry the literal strings `rim_left` /
 `c_disc_bottom` (plugin converter) — but **A/B semantics shifted on
 2026-05-14**: under the current contract, A and B are screen-space
 floor-ray points, **not** rim points. Bundles annotated before that
-date (including legacy `manual_sample` and the synthetic
-`create_sample_*` fixtures) carry the old "rim edge" geometry and
-must be re-annotated before they can be used to train against the
-new contract. The literal label strings remain for backward
-compatibility with `postprocess_wheels.py` and the converters; only
-the *content* of A/B has changed.
+date carry the old "rim edge" geometry and must be re-annotated before
+they can be used to train against the new contract. Current plugin-flow
+synthetic fixtures are floor-ray smoke data only, not production
+training data. The literal label strings remain for backward
+compatibility with `postprocess_wheels.py` and the converters; only the
+*content* of A/B has changed.
 
 ## Folder structure
 

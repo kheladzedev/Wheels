@@ -12,7 +12,7 @@
 # Pose label format (one line per wheel, normalized to [0, 1] except v):
 #   <class_id> <cx> <cy> <w> <h> <a_x> <a_y> <a_v> <b_x> <b_y> <b_v> <c_x> <c_y> <c_v>
 #
-# A = left rim source, B = right rim source, C = lowest visible disc point.
+# A = left floor-ray source, B = right floor-ray source, C = lowest visible disc point.
 # Plugin contract has no occlusion flag, so the converter emits v=2 for every
 # kept point. See docs/KEYPOINT_DATASET_FORMAT.md.
 
@@ -24,8 +24,8 @@ names:
   0: wheel
 
 # 3 keypoints per wheel, 3 dims each (x, y, visibility):
-#   kp0 = a              — left rim source (raycast left)
-#   kp1 = b              — right rim source (raycast right)
+#   kp0 = a              — left floor-ray point near the wheel footprint
+#   kp1 = b              — right floor-ray point near the wheel footprint
 #   kp2 = c_disc_bottom  — lowest visible point of the metal disc
 kpt_shape: [3, 3]
 

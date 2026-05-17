@@ -59,9 +59,9 @@ def _two_wheel_legacy_payload() -> dict:
             "bbox": [100, 200, 200, 300],
             "confidence": 0.93,
             "keypoints": [
-                {"xy": [150, 210], "visibility": 2, "confidence": 0.95},
-                {"xy": [150, 290], "visibility": 2, "confidence": 0.92},
-                {"xy": [150, 295], "visibility": 2, "confidence": 0.88},
+                {"xy": [110, 288], "visibility": 2, "confidence": 0.95},
+                {"xy": [190, 289], "visibility": 2, "confidence": 0.92},
+                {"xy": [150, 270], "visibility": 2, "confidence": 0.88},
             ],
         },
         {
@@ -69,9 +69,9 @@ def _two_wheel_legacy_payload() -> dict:
             "bbox": [300, 200, 380, 280],
             "confidence": 0.88,
             "keypoints": [
-                {"xy": [340, 208], "visibility": 2, "confidence": 0.90},
-                {"xy": [340, 272], "visibility": 2, "confidence": 0.85},
-                {"xy": [340, 275], "visibility": 2, "confidence": 0.80},
+                {"xy": [308, 268], "visibility": 2, "confidence": 0.90},
+                {"xy": [372, 269], "visibility": 2, "confidence": 0.85},
+                {"xy": [340, 252], "visibility": 2, "confidence": 0.80},
             ],
         },
     ]
@@ -181,7 +181,7 @@ def test_confirmed_schema_empty_wheels_is_valid() -> None:
 
 
 def test_confirmed_schema_drops_partially_occluded_wheels() -> None:
-    """Wheels with any visibility=0 keypoint must NOT appear in the
+    """Wheels with any visibility<2 keypoint must NOT appear in the
     confirmed response (the schema represents only fully-visible
     wheels — `visibility` is not part of the response itself)."""
     detections = [
@@ -190,9 +190,9 @@ def test_confirmed_schema_drops_partially_occluded_wheels() -> None:
             "bbox": [100, 200, 200, 300],
             "confidence": 0.93,
             "keypoints": [
-                {"xy": [150, 210], "visibility": 2, "confidence": 0.95},
-                {"xy": [150, 290], "visibility": 2, "confidence": 0.92},
-                {"xy": [150, 295], "visibility": 2, "confidence": 0.88},
+                {"xy": [110, 288], "visibility": 2, "confidence": 0.95},
+                {"xy": [190, 289], "visibility": 2, "confidence": 0.92},
+                {"xy": [150, 270], "visibility": 2, "confidence": 0.88},
             ],
         },
         {
@@ -200,9 +200,9 @@ def test_confirmed_schema_drops_partially_occluded_wheels() -> None:
             "bbox": [300, 200, 380, 280],
             "confidence": 0.88,
             "keypoints": [
-                {"xy": [340, 208], "visibility": 2, "confidence": 0.90},
-                {"xy": [340, 272], "visibility": 1, "confidence": 0.55},
-                {"xy": [340, 275], "visibility": 0, "confidence": 0.10},
+                {"xy": [308, 268], "visibility": 2, "confidence": 0.90},
+                {"xy": [372, 269], "visibility": 1, "confidence": 0.55},
+                {"xy": [340, 252], "visibility": 2, "confidence": 0.80},
             ],
         },
     ]

@@ -495,7 +495,7 @@ def _render(
     status: str,
     selected_idx: int | None = None,
 ) -> None:
-    """Draw committed wheels (green; selected = red) + in-progress clicks
+    """Draw committed wheels + keypoints using the AR mock-spec colours.
     (yellow) + status."""
     import cv2  # local import keeps headless tests fast
 
@@ -517,9 +517,9 @@ def _render(
             cv2.LINE_AA,
         )
         for name, color in (
-            ("a", (0, 255, 0)),
-            ("b", (0, 255, 255)),
-            ("c_disc_bottom", (0, 0, 255)),
+            ("a", (0, 0, 255)),  # A — red
+            ("b", (255, 0, 0)),  # B — blue
+            ("c_disc_bottom", (0, 255, 0)),  # C — green
         ):
             xy = wheel["points"][name]
             cv2.circle(

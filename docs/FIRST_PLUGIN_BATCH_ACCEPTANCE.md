@@ -127,11 +127,11 @@ This is the load-bearing human gate. Confirm, on each previewed wheel:
 - **bbox** covers the **full wheel including the tire** — not just the
   rim, not just the disc. If the bbox is glued to the rim and the
   tire pokes out, the annotation is wrong.
-- **A / B (green / yellow)** are near the **floor / base / footprint**
+- **A / B (red / blue)** are near the **floor / base / footprint**
   of the wheel — at or just below the tire-ground contact line, in
   the lower band of the bbox. They are **not** rim-edge points and
   must not be sitting on the metal rim or up on the disc.
-- **C (red)** is the **lowest visible point of the metal rim / disc**
+- **C (green)** is the **lowest visible point of the metal rim / disc**
   — on the metal, not on the tire, not on the floor.
 - **Occluded wheels are not annotated.** If a wheel is half hidden
   behind a bumper / curb / other car and you can still see its

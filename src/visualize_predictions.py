@@ -17,10 +17,11 @@ import cv2
 
 COLOR_BBOX = (255, 128, 0)
 COLOR_KP = (
-    (0, 255, 0),  # rim_left
-    (0, 200, 255),  # rim_right
-    (0, 0, 255),  # disc_bottom
+    (0, 0, 255),  # A — red
+    (255, 0, 0),  # B — blue
+    (0, 255, 0),  # C — green
 )
+DISPLAY_KP_NAMES = ("A", "B", "C")
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,7 +46,7 @@ def main() -> None:
         payload = json.load(f)
 
     for w in payload.get("wheels", []):
-        bbox = w.get("wheel_bbox")
+        bbox = w.get("wheel_bbox") or w.get("bbox_xyxy")
         if bbox:
             x1, y1, x2, y2 = (int(round(v)) for v in bbox)
             cv2.rectangle(img, (x1, y1), (x2, y2), COLOR_BBOX, 2)
@@ -61,17 +62,31 @@ def main() -> None:
                 cv2.LINE_AA,
             )
 
-        for i, kp in enumerate(w.get("keypoints", [])):
+        if "points" in w:
+            keypoints = [
+                {"name": "a", "xy": w["points"]["a"], "visibility": 2},
+                {"name": "b", "xy": w["points"]["b"], "visibility": 2},
+                {
+                    "name": "c_disc_bottom",
+                    "xy": w["points"]["c_disc_bottom"],
+                    "visibility": 2,
+                },
+            ]
+        else:
+            keypoints = w.get("keypoints", [])
+
+        for i, kp in enumerate(keypoints):
             if kp.get("visibility", 0) == 0:
                 continue
             kx, ky = (int(round(v)) for v in kp["xy"])
             color = COLOR_KP[i % len(COLOR_KP)]
             cv2.circle(img, (kx, ky), 5, color, -1)
             kp_conf = kp.get("confidence")
+            display_name = DISPLAY_KP_NAMES[i] if i < len(DISPLAY_KP_NAMES) else kp.get("name", f"kp{i}")
             tag = (
-                f"{kp.get('name', f'kp{i}')} {kp_conf:.2f}"
+                f"{display_name} {kp_conf:.2f}"
                 if kp_conf is not None
-                else kp.get("name", f"kp{i}")
+                else display_name
             )
             cv2.putText(
                 img,

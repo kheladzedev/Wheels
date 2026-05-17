@@ -6,11 +6,11 @@ keypoints onto the matching image. Output goes to JPEGs in
 `<output-root>/<stem>_preview.jpg`.
 
 Keypoint semantics (2026-05-14 revision — see docs/KEYPOINT_SPEC.md):
-    * A (green) — left floor-ray point. Screen-space raycast source
+    * A (red) — left floor-ray point. Screen-space raycast source
       onto the floor plane. **Not** a metal-rim edge.
-    * B (yellow) — right floor-ray point. Same role on the right.
+    * B (blue) — right floor-ray point. Same role on the right.
       **Not** a metal-rim edge.
-    * C (red) — lowest visible point of the metal rim / disc.
+    * C (green) — lowest visible point of the metal rim / disc.
 
 Sister scripts:
   - `src/check_keypoint_incoming.py` — validates the batch.
@@ -35,12 +35,11 @@ import numpy as np
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
-# BGR. Orange for the bbox so it never collides with the green/yellow/red
-# keypoint markers in either channel.
+# BGR. Keypoint colours match the AR mock spec board: A=red, B=blue, C=green.
 BBOX_COLOR_BGR = (0, 165, 255)
-POINT_A_COLOR_BGR = (0, 255, 0)
-POINT_B_COLOR_BGR = (0, 255, 255)
-POINT_C_COLOR_BGR = (0, 0, 255)
+POINT_A_COLOR_BGR = (0, 0, 255)
+POINT_B_COLOR_BGR = (255, 0, 0)
+POINT_C_COLOR_BGR = (0, 255, 0)
 LABEL_OFFSET = (6, -6)
 
 

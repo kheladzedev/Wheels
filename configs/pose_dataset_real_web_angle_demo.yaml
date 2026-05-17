@@ -1,0 +1,31 @@
+# YOLO-pose dataset config for the real-web 3/4-angle floor-ray demo.
+#
+# Images are real car photos from Wikimedia Commons with front/rear
+# three-quarter viewpoints. The incoming batch lives at
+# `data/incoming/real_web_angle_demo` and was converted with:
+#
+#   src/convert_keypoint_incoming_to_yolo_pose.py \
+#     --source-root data/incoming/real_web_angle_demo \
+#     --dataset-root data/wheel_pose_dataset_real_web_angle_demo \
+#     --source-name real_web_angle \
+#     --overwrite \
+#     --fail-on-quality-gate
+#
+# This is a smoke/demo dataset for verifying A/B/C floor-ray geometry on
+# perspective views. It is intentionally small and not a production training set.
+
+path: data/wheel_pose_dataset_real_web_angle_demo
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+# 3 keypoints per wheel, 3 dims each (x, y, visibility):
+#   kp0 = a              — left floor-ray point near the wheel footprint
+#   kp1 = b              — right floor-ray point near the wheel footprint
+#   kp2 = c_disc_bottom  — lowest visible point of the metal disc
+kpt_shape: [3, 3]
+
+# Under horizontal flip A and B swap; C stays.
+flip_idx: [1, 0, 2]

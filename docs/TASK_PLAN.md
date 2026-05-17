@@ -5,10 +5,11 @@ integrate. Each stage has a concrete deliverable.
 
 The AR spec
 (https://docs.google.com/document/d/1HwMfJYc3eWaovN183370iWYmLjTosF9UMconj-UawFg/)
-fixes the ML deliverable as a YOLO-pose model emitting one `wheel` class
-with 3 keypoints (`rim_left`, `rim_right`, `disc_bottom`) per instance.
-All 3D logic (raycast, RANSAC, plane fit, K-frame accumulation, tracking)
-lives on the AR side.
+fixes the ML deliverable as one `wheel` class with 3 keypoints per
+instance: `a`, `b`, `c_disc_bottom`. A/B are floor-ray points, not rim
+edges; C is the lowest visible metal rim / disc point. All 3D logic
+(raycast, RANSAC, plane fit, K-frame accumulation, tracking) lives on
+the AR side.
 
 ## Stage 0 — Environment and smoke test  ✅
 
@@ -24,20 +25,23 @@ lives on the AR side.
 **Done when:** all five commands succeed. Detection quality is **not**
 judged here — synthetic cartoon data does not generalize.
 
-## Stage 1 — AR-team contract closure  ⏳ blocked
+## Stage 1 — AR-team contract closure  ✅
 
 **Goal:** lock down the JSON contract and annotation conventions.
 
-See `docs/QUESTIONS_FOR_TEAM.md`. Critical answers:
+See `docs/OPEN_QUESTIONS_AR_SPEC.md`. Critical answers are now pinned:
 
-- Q1 disc-bottom definition.
-- Q2 which two rim keypoints (top/bottom vs left/right).
-- Q3 occlusion convention (`visibility=0` vs drop instance).
-- Q4 per-keypoint confidence in JSON.
-- Q5 tracking responsibility.
+- `c_disc_bottom` = visually lowest visible point of the metal rim / disc.
+- A/B = floor-plane post-process points used to recover the wheel plane.
+- Occluded / partially closed wheels are dropped.
+- No per-keypoint confidence.
+- No ML `track_id`; AR filters/associates by coordinates after raycast.
+- `frame_id` only; no timestamp.
+- Android first.
 
-**Done when:** the open-questions list is empty or every remaining item is
-explicitly deferred to v2.
+**Done when:** any remaining item is explicitly non-contract-critical.
+Current remaining item: exact Unreal collector richness / 3D debug
+metadata. It does not change the confirmed ML JSON.
 
 ## Stage 2 — Real / synthetic data collection
 
@@ -80,7 +84,7 @@ volume ready for conversion.
 - Run:
   ```bash
   python src/train_yolo.py \
-    --data configs/dataset.yaml \
+    --data configs/pose_dataset.yaml \
     --model yolo11n-pose.pt \
     --epochs 50 \
     --device mps \
@@ -124,15 +128,14 @@ and `docs/REAL_V1_RETRAIN.md`).
 reaches the Stage 4 targets and the failure catalogue is committed
 in `outputs/eval/`.
 
-## Stage 6 — Export and integration handoff
+## Stage 6 — Android-first export and integration handoff
 
 **Goal:** AR/web team can call the model on a fresh image and get the
 documented JSON without any ML-side hand-holding.
 
-- Decide export format based on Q10:
-  - server / web (ONNX): `model.export(format="onnx")`.
-  - iOS (CoreML): `model.export(format="coreml")`.
-  - Android (TFLite): `model.export(format="tflite")`.
+- First export target is Android (TFLite / LiteRT). ONNX/CoreML stay
+  useful for debug or later platform work, but are not the first
+  integration milestone.
 - Document the JSON contract version (already in README) and freeze it.
 - Provide either a hosted endpoint or an inference wrapper script.
 - One round of end-to-end test with the AR client: their `frame_id` →

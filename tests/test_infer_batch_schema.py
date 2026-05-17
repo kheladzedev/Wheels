@@ -51,7 +51,7 @@ def _detection(
         "keypoints": [
             {"xy": [110.0, 380.0], "visibility": 2, "confidence": 0.95},
             {"xy": [290.0, 380.0], "visibility": 2, "confidence": 0.94},
-            {"xy": [200.0, 390.0], "visibility": 2, "confidence": 0.93},
+            {"xy": [200.0, 340.0], "visibility": 2, "confidence": 0.93},
         ],
     }
 

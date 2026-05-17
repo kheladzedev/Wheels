@@ -1,0 +1,16 @@
+# YOLO-pose config for the combined real-web demo set.
+# Train and val intentionally contain the same 9 annotated Commons photos;
+# use only as a service/pipeline overfit smoke check, not production metrics.
+
+path: data/wheel_pose_dataset_real_web_combined_demo
+train: images/train
+val: images/val
+names:
+  0: wheel
+kpt_shape:
+- 3
+- 3
+flip_idx:
+- 1
+- 0
+- 2

@@ -13,9 +13,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import eval_keypoints as eval_mod
 from eval_keypoints import (
     DEFAULT_SIGMAS,
     GTWheel,
+    KEYPOINT_NAMES,
     MatchedPair,
     PredWheel,
     box_iou,
@@ -121,6 +123,28 @@ def test_per_keypoint_error_ignores_invisible_gt():
     assert errs[2] is not None
     assert abs(errs[0] - 5.0) < 1e-9
     assert abs(errs[2] - 5.0) < 1e-9
+
+
+def test_eval_report_uses_confirmed_ar_point_names():
+    assert KEYPOINT_NAMES == ("a", "b", "c_disc_bottom")
+
+    gt = _gt(
+        (0, 0, 100, 100),
+        kps=[(10, 10), (50, 50), (80, 80)],
+        vis=(2, 2, 2),
+    )
+    pred = _pred(
+        (0, 0, 100, 100),
+        kps=[(13, 14), (53, 54), (83, 84)],
+    )
+
+    metrics = eval_mod.compute_metrics([([pred], [gt])], conf_threshold=0.25)
+
+    assert set(metrics["per_keypoint_pixel_error"].keys()) == {
+        "a",
+        "b",
+        "c_disc_bottom",
+    }
 
 
 # ---- OKS ---------------------------------------------------------------
@@ -325,3 +349,54 @@ def test_top_n_failures_skips_invisible_keypoints_in_score():
     assert row["per_keypoint_px"][1] is None
     assert row["per_keypoint_px"][0] is not None
     assert row["per_keypoint_px"][2] is not None
+
+
+def test_top_n_failures_preserves_input_order_for_tied_scores():
+    # heapq.nlargest is used for top-k ranking; equal scores must remain
+    # deterministic so failure catalogues do not churn between runs.
+    pairs = [_mp("a", 5.0), _mp("b", 5.0), _mp("c", 5.0)]
+
+    out = top_n_failures(pairs, n=2)
+
+    assert [Path(row["image"]).stem for row in out] == ["a", "b"]
+
+
+def test_match_records_reuse_one_matching_pass(monkeypatch):
+    def _make_image(offset: float) -> tuple[list[PredWheel], list[GTWheel]]:
+        gt = _gt(
+            (offset, 0, offset + 100, 100),
+            kps=[(offset + 10, 10), (offset + 90, 50), (offset + 50, 90)],
+        )
+        pred = _pred(
+            (offset + 1, 1, offset + 101, 101),
+            kps=[(offset + 10, 10), (offset + 90, 50), (offset + 50, 90)],
+        )
+        return [pred], [gt]
+
+    image_records = [
+        (Path("/tmp/a.jpg"), *_make_image(0.0)),
+        (Path("/tmp/b.jpg"), *_make_image(200.0)),
+    ]
+    calls = 0
+    original = eval_mod.match_predictions_to_gt
+
+    def counting_match(preds, gts, iou_threshold=eval_mod.DEFAULT_IOU_MATCH):
+        nonlocal calls
+        calls += 1
+        return original(preds, gts, iou_threshold=iou_threshold)
+
+    monkeypatch.setattr(eval_mod, "match_predictions_to_gt", counting_match)
+
+    matched_records = eval_mod.match_image_records(image_records)
+    assert calls == len(image_records)
+
+    metrics = eval_mod.compute_metrics_from_match_records(
+        matched_records,
+    )
+    sliced = eval_mod.compute_sliced_metrics_from_match_records(matched_records)
+    pairs = eval_mod.collect_matched_pairs_from_match_records(matched_records)
+
+    assert calls == len(image_records)
+    assert metrics["counts"]["matched"] == 2
+    assert sliced["by_bbox_area"]["large"]["n_matched"] == 2
+    assert [p.image_path.name for p in pairs] == ["a.jpg", "b.jpg"]

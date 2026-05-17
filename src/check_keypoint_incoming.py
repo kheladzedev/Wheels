@@ -26,6 +26,9 @@ import cv2
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 REQUIRED_POINT_KEYS = frozenset({"a", "b", "c_disc_bottom"})
 BBOX_POINT_TOLERANCE_PX = 5.0
+MIN_FLOOR_RAY_REL_Y = 0.80
+MIN_DISC_BOTTOM_REL_Y = 0.50
+MIN_AB_SEPARATION_RATIO = 0.50
 MAX_PROBLEMS_TO_PRINT = 20
 
 
@@ -101,6 +104,7 @@ def _validate_wheel(
     if extra_keys:
         errors.append(f"{prefix}.points: unexpected key(s) {sorted(extra_keys)}")
 
+    parsed_points: dict[str, tuple[float, float]] = {}
     for key in REQUIRED_POINT_KEYS:
         if key not in points:
             continue
@@ -117,6 +121,7 @@ def _validate_wheel(
                 f"[0,{image_w}]x[0,{image_h}]"
             )
             continue
+        parsed_points[key] = (px, py)
         if not (
             x1 - BBOX_POINT_TOLERANCE_PX <= px <= x2 + BBOX_POINT_TOLERANCE_PX
             and y1 - BBOX_POINT_TOLERANCE_PX <= py <= y2 + BBOX_POINT_TOLERANCE_PX
@@ -125,6 +130,63 @@ def _validate_wheel(
                 f"{prefix}.points.{key}: ({px}, {py}) outside bbox "
                 f"[{x1},{y1},{x2},{y2}] with {BBOX_POINT_TOLERANCE_PX}px slack"
             )
+
+    if REQUIRED_POINT_KEYS <= parsed_points.keys():
+        _validate_floorray_geometry(prefix, x1, y1, x2, y2, parsed_points, errors)
+
+
+def _validate_floorray_geometry(
+    prefix: str,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    points: dict[str, tuple[float, float]],
+    errors: list[str],
+) -> None:
+    """Enforce the 2026-05-13 floor-ray A/B annotation semantics."""
+    bbox_w = x2 - x1
+    bbox_h = y2 - y1
+    if bbox_w <= 0 or bbox_h <= 0:
+        return
+
+    ax, ay = points["a"]
+    bx, by = points["b"]
+    _cx, cy = points["c_disc_bottom"]
+    rel_y_a = (ay - y1) / bbox_h
+    rel_y_b = (by - y1) / bbox_h
+    rel_y_c = (cy - y1) / bbox_h
+    ab_sep_ratio = abs(bx - ax) / bbox_w
+
+    if ax >= bx:
+        errors.append(
+            f"{prefix}.points: expected a.x < b.x for left/right floor-ray anchors"
+        )
+    if rel_y_a < MIN_FLOOR_RAY_REL_Y:
+        errors.append(
+            f"{prefix}.points.a: floor-ray point too high in bbox "
+            f"(rel_y={rel_y_a:.3f}, expected >= {MIN_FLOOR_RAY_REL_Y:.2f})"
+        )
+    if rel_y_b < MIN_FLOOR_RAY_REL_Y:
+        errors.append(
+            f"{prefix}.points.b: floor-ray point too high in bbox "
+            f"(rel_y={rel_y_b:.3f}, expected >= {MIN_FLOOR_RAY_REL_Y:.2f})"
+        )
+    if ab_sep_ratio < MIN_AB_SEPARATION_RATIO:
+        errors.append(
+            f"{prefix}.points: A/B anchors too close "
+            f"(separation={ab_sep_ratio:.3f}, expected >= {MIN_AB_SEPARATION_RATIO:.2f})"
+        )
+    if rel_y_c <= MIN_DISC_BOTTOM_REL_Y:
+        errors.append(
+            f"{prefix}.points.c_disc_bottom: disc-bottom point too high in bbox "
+            f"(rel_y={rel_y_c:.3f}, expected > {MIN_DISC_BOTTOM_REL_Y:.2f})"
+        )
+    if not cy < min(ay, by):
+        errors.append(
+            f"{prefix}.points.c_disc_bottom: expected C above A/B in image "
+            f"(c.y={cy}, a.y={ay}, b.y={by})"
+        )
 
 
 def _validate_one(

@@ -1,9 +1,9 @@
 # Android-First Model Plan
 
-Confirmed direction (AR team, 2026-05-13): **Android is the first
-target platform**. We aim for an on-device model that detects wheels +
-3 keypoints (`a`, `b`, `c_disc_bottom`) per frame and runs at
-AR-friendly latency on a real Android device.
+Confirmed direction (AR team, 2026-05-13; re-confirmed 2026-05-18):
+**Android is the first target platform**. We aim for an on-device
+model that detects wheels + 3 keypoints (`a`, `b`, `c_disc_bottom`)
+per frame and runs at AR-friendly latency on a real Android device.
 
 This document tracks the two-stage model roadmap. Stage 1 validates
 the data and pipeline with the simplest thing that already works;
@@ -42,16 +42,17 @@ task is learnable from the data we have.
 **Goal:** model that runs on Android at AR-relevant latency and ships
 to the on-device runtime (TFLite / LiteRT).
 
-Likely shape (subject to change after Stage 1 reveals real-data
-behaviour):
+Likely shape, aligned with the Unreal-side recommendation
+("super-light, MobileNetV2 as encoder, without lower skips"):
 
-- **Encoder:** MobileNetV2 (or MobileNetV3-Small if recall on small
-  wheels turns out acceptable). ImageNet-pretrained.
-- **Detection head:** small one-stage detector (FCOS-style or
-  CenterNet-style) for the single `wheel` class.
-- **Keypoint head:** small heatmap head emitting 3 channels (one per
-  keypoint), peaked at the keypoint location. Argmax + sub-pixel
-  refinement at decode.
+- **Encoder:** MobileNetV2, ImageNet-pretrained where available.
+  Use the final encoder feature map only; no FPN / lower skip
+  connections.
+- **Detection + keypoint head:** small one-stage head for the single
+  `wheel` class and 3 keypoints. The current repo implementation is
+  `src/models/mobilenetv2_skipless_pose.py`; it is architecturally
+  aligned but still needs a real dataset trainer/export path before it
+  can replace the YOLO baseline.
 - **Input size:** 320×320 or 416×416 — pick after measuring on-device
   latency.
 - **Quantization:** INT8 post-training, calibrated on the real-data

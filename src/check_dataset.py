@@ -8,7 +8,8 @@ Verifies the layout described in docs/DATASET_SPEC.md:
   - class_id is 0 (single class `wheel`)
   - bbox coordinates are in [0, 1]
   - keypoint coordinates are in [0, 1] when visibility > 0
-  - visibility flags are in {0, 1, 2}
+  - visibility flags are 2 for all emitted wheels (occluded wheels are omitted)
+  - A/B keypoints follow the floor-ray geometry gate
 
 Exits with code 0 if everything is OK, non-zero otherwise.
 
@@ -27,6 +28,9 @@ ALLOWED_CLASS_IDS = {0}
 SPLITS = ("train", "val")
 N_KEYPOINTS = 3
 FIELDS_PER_LINE = 5 + N_KEYPOINTS * 3  # class + bbox(4) + (x,y,v) per kp
+MIN_FLOOR_RAY_REL_Y = 0.80
+MIN_DISC_BOTTOM_REL_Y = 0.50
+MIN_AB_SEPARATION_RATIO = 0.50
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,13 +43,8 @@ def list_images(images_dir: Path) -> list[Path]:
     return sorted(p for p in images_dir.iterdir() if p.suffix.lower() in IMAGE_EXTS)
 
 
-def validate_label_file(label_path: Path) -> list[str]:
+def validate_label_text(label_path: Path, text: str) -> list[str]:
     problems: list[str] = []
-    try:
-        text = label_path.read_text(encoding="utf-8")
-    except OSError as e:
-        return [f"{label_path}: cannot read ({e})"]
-
     for lineno, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if not line:
@@ -76,6 +75,7 @@ def validate_label_file(label_path: Path) -> list[str]:
                     f"{label_path}:{lineno}: bbox {name}={val} not in [0,1]"
                 )
 
+        keypoints: list[tuple[float, float, int]] = []
         for i in range(N_KEYPOINTS):
             try:
                 kx = float(kp_vals[i * 3])
@@ -88,12 +88,81 @@ def validate_label_file(label_path: Path) -> list[str]:
                 problems.append(
                     f"{label_path}:{lineno}: kp{i} visibility={vis} not in 0/1/2"
                 )
+            elif vis != 2:
+                problems.append(
+                    f"{label_path}:{lineno}: kp{i} visibility={vis}; confirmed "
+                    "floor-ray datasets must omit occluded wheels instead"
+                )
             if vis > 0:
                 if not 0.0 <= kx <= 1.0:
                     problems.append(f"{label_path}:{lineno}: kp{i}.x={kx} not in [0,1]")
                 if not 0.0 <= ky <= 1.0:
                     problems.append(f"{label_path}:{lineno}: kp{i}.y={ky} not in [0,1]")
+            keypoints.append((kx, ky, vis))
+        if len(keypoints) == N_KEYPOINTS:
+            problems.extend(
+                validate_floorray_geometry(label_path, lineno, bbox_vals, keypoints)
+            )
     return problems
+
+
+def validate_floorray_geometry(
+    label_path: Path,
+    lineno: int,
+    bbox_vals: list[float],
+    keypoints: list[tuple[float, float, int]],
+) -> list[str]:
+    """Validate normalized YOLO labels against floor-ray A/B semantics."""
+    cx, cy, w, h = bbox_vals
+    if w <= 0 or h <= 0:
+        return []
+    x1 = cx - w / 2.0
+    y1 = cy - h / 2.0
+    ax, ay, _ = keypoints[0]
+    bx, by, _ = keypoints[1]
+    _cx, c_y, _ = keypoints[2]
+    rel_y_a = (ay - y1) / h
+    rel_y_b = (by - y1) / h
+    rel_y_c = (c_y - y1) / h
+    ab_sep_ratio = abs(bx - ax) / w
+
+    problems: list[str] = []
+    if ax >= bx:
+        problems.append(f"{label_path}:{lineno}: expected kp0.x < kp1.x for A/B")
+    if rel_y_a < MIN_FLOOR_RAY_REL_Y:
+        problems.append(
+            f"{label_path}:{lineno}: kp0/a floor-ray point too high "
+            f"(rel_y={rel_y_a:.3f}, expected >= {MIN_FLOOR_RAY_REL_Y:.2f})"
+        )
+    if rel_y_b < MIN_FLOOR_RAY_REL_Y:
+        problems.append(
+            f"{label_path}:{lineno}: kp1/b floor-ray point too high "
+            f"(rel_y={rel_y_b:.3f}, expected >= {MIN_FLOOR_RAY_REL_Y:.2f})"
+        )
+    if ab_sep_ratio < MIN_AB_SEPARATION_RATIO:
+        problems.append(
+            f"{label_path}:{lineno}: A/B anchors too close "
+            f"(separation={ab_sep_ratio:.3f}, expected >= {MIN_AB_SEPARATION_RATIO:.2f})"
+        )
+    if rel_y_c <= MIN_DISC_BOTTOM_REL_Y:
+        problems.append(
+            f"{label_path}:{lineno}: kp2/c_disc_bottom too high "
+            f"(rel_y={rel_y_c:.3f}, expected > {MIN_DISC_BOTTOM_REL_Y:.2f})"
+        )
+    if not c_y < min(ay, by):
+        problems.append(
+            f"{label_path}:{lineno}: expected c_disc_bottom above A/B "
+            f"(c.y={c_y}, a.y={ay}, b.y={by})"
+        )
+    return problems
+
+
+def validate_label_file(label_path: Path) -> list[str]:
+    try:
+        text = label_path.read_text(encoding="utf-8")
+    except OSError as e:
+        return [f"{label_path}: cannot read ({e})"]
+    return validate_label_text(label_path, text)
 
 
 def check_split(root: Path, split: str, errors: list[str]) -> dict:
@@ -126,9 +195,14 @@ def check_split(root: Path, split: str, errors: list[str]) -> dict:
             errors.append(f"Missing label for image: {img}")
             stats["missing_labels"] += 1
             continue
-        if label_path.stat().st_size == 0:
+        try:
+            label_text = label_path.read_text(encoding="utf-8")
+        except OSError as e:
+            errors.append(f"{label_path}: cannot read ({e})")
+            continue
+        if not label_text:
             stats["empty_labels"] += 1
-        errors.extend(validate_label_file(label_path))
+        errors.extend(validate_label_text(label_path, label_text))
 
     image_stems = {p.stem for p in images}
     orphan_labels = label_files - image_stems

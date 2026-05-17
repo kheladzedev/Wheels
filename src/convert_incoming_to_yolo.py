@@ -135,8 +135,9 @@ def assign_splits(
         shuffled = images[:]
         rng.shuffle(shuffled)
         n_val = int(round(len(shuffled) * val_ratio))
-        val_set = set(shuffled[:n_val])
-        assignment = {p: ("val" if p in val_set else "train") for p in images}
+        assignment = {p: "train" for p in images}
+        for p in shuffled[:n_val]:
+            assignment[p] = "val"
         return assignment, {
             "split_strategy": "random_per_image",
             "split_strategy_note": (
@@ -160,8 +161,10 @@ def assign_splits(
     scenes = sorted({k for k in scene_of.values()})
     rng.shuffle(scenes)
     n_val_scenes = int(round(len(scenes) * val_ratio))
-    val_scenes = set(scenes[:n_val_scenes])
-    assignment = {p: ("val" if scene_of[p] in val_scenes else "train") for p in images}
+    scene_assignment = {scene: "train" for scene in scenes}
+    for scene in scenes[:n_val_scenes]:
+        scene_assignment[scene] = "val"
+    assignment = {p: scene_assignment[scene_of[p]] for p in images}
     return assignment, {
         "split_strategy": "scene_regex",
         "scene_regex": scene_regex,
@@ -364,9 +367,6 @@ def main() -> int:
         print(f"ERROR: invalid --scene-regex {args.scene_regex!r}: {e}")
         return 2
 
-    def split_for(p: Path) -> str:
-        return split_assignment[p]
-
     warnings: list[str] = []
     skipped: list[dict] = []
     per_class_counts: dict[str, int] = {name: 0 for name in CLASS_NAME_TO_ID}
@@ -463,7 +463,7 @@ def main() -> int:
             label_lines.append(format_label_line(cls_id, yolo_bbox, yolo_kps))
             per_class_counts[class_name] += 1
 
-        split = split_for(img_path)
+        split = split_assignment[img_path]
         out_stem = f"{source_name}__{img_path.stem}"
         out_image = (
             dataset_root / "images" / split / f"{out_stem}{img_path.suffix.lower()}"

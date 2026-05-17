@@ -1,13 +1,12 @@
 """Evaluate YOLO-pose wheel + keypoint predictions against the val split.
 
 Measures how well a trained YOLO-pose model predicts the 3 wheel
-keypoints AR consumes (point_a / rim_left, point_b / rim_right,
-point_c_disc_bottom). Outputs a JSON report and an ASCII table to
-stdout.
+keypoints AR consumes (a / b / c_disc_bottom). Outputs a JSON report
+and an ASCII table to stdout.
 
 Pipeline:
   1. Load the YOLO-pose model (must have `task == "pose"`).
-  2. Resolve the dataset root from configs/dataset.yaml; locate
+  2. Resolve the dataset root from configs/pose_dataset.yaml; locate
      images/<split>/*.* and labels/<split>/*.txt.
   3. For each image, read the 14-field YOLO-pose label lines, parse
      them to GT wheels in pixel coordinates.
@@ -34,7 +33,7 @@ where:
 Usage:
     python src/eval_keypoints.py \\
         --model runs/pose/wheel_baseline/weights/best.pt \\
-        --data configs/dataset.yaml \\
+        --data configs/pose_dataset.yaml \\
         --split val --device mps \\
         --conf 0.25 --iou 0.45 --max-det 20 \\
         --output outputs/eval/wheel_baseline.json
@@ -43,6 +42,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import sys
 import warnings
@@ -56,7 +56,7 @@ import numpy as np
 import yaml
 from ultralytics import YOLO
 
-KEYPOINT_NAMES = ("point_a", "point_b", "point_c_disc_bottom")
+KEYPOINT_NAMES = ("a", "b", "c_disc_bottom")
 INTERNAL_KEYPOINT_NAMES = ("rim_left", "rim_right", "disc_bottom")
 N_KEYPOINTS = 3
 DEFAULT_SIGMAS: tuple[float, float, float] = (0.10, 0.10, 0.10)
@@ -104,6 +104,16 @@ class MatchResult:
     matches: list[tuple[int, int]] = field(default_factory=list)  # (pred_idx, gt_idx)
     unmatched_gt: list[int] = field(default_factory=list)
     unmatched_preds: list[int] = field(default_factory=list)
+
+
+@dataclass
+class MatchedImageRecord:
+    """Pred/GT records plus the already-computed greedy match for one image."""
+
+    image_path: Path | None
+    preds: Sequence[PredWheel]
+    gts: Sequence[GTWheel]
+    match: MatchResult
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +445,22 @@ class MatchedPair:
     gt: GTWheel
 
 
+def match_image_records(
+    image_records: Sequence[tuple[Path | None, Sequence[PredWheel], Sequence[GTWheel]]],
+    iou_match: float = DEFAULT_IOU_MATCH,
+) -> list[MatchedImageRecord]:
+    """Compute greedy pred/GT matches once per image for downstream reuse."""
+    return [
+        MatchedImageRecord(
+            image_path=image_path,
+            preds=preds,
+            gts=gts,
+            match=match_predictions_to_gt(preds, gts, iou_threshold=iou_match),
+        )
+        for image_path, preds, gts in image_records
+    ]
+
+
 def collect_matched_pairs(
     image_records: Sequence[tuple[Path | None, Sequence[PredWheel], Sequence[GTWheel]]],
     iou_match: float = DEFAULT_IOU_MATCH,
@@ -446,18 +472,59 @@ def collect_matched_pairs(
     caller does not have one (e.g. synthetic test data); the slicing
     code does not need the path but the failure catalog does.
     """
+    return collect_matched_pairs_from_match_records(
+        match_image_records(image_records, iou_match=iou_match)
+    )
+
+
+def collect_matched_pairs_from_match_records(
+    matched_records: Sequence[MatchedImageRecord],
+) -> list[MatchedPair]:
+    """Flatten pre-matched image records to a list of matched (pred, gt) pairs."""
     pairs: list[MatchedPair] = []
-    for image_path, preds, gts in image_records:
-        m = match_predictions_to_gt(preds, gts, iou_threshold=iou_match)
-        for p_idx, g_idx in m.matches:
+    for record in matched_records:
+        for p_idx, g_idx in record.match.matches:
             pairs.append(
                 MatchedPair(
-                    image_path=image_path if image_path is not None else Path(""),
-                    pred=preds[p_idx],
-                    gt=gts[g_idx],
+                    image_path=(
+                        record.image_path
+                        if record.image_path is not None
+                        else Path("")
+                    ),
+                    pred=record.preds[p_idx],
+                    gt=record.gts[g_idx],
                 )
             )
     return pairs
+
+
+def _empty_slice_buckets(
+    axis: SliceAxis,
+) -> dict[str, list[tuple[PredWheel, GTWheel]]]:
+    if axis == "bbox_area":
+        return {"small": [], "medium": [], "large": []}
+    if axis == "occlusion":
+        return {"with_occlusion": [], "without_occlusion": []}
+    raise ValueError(f"Unknown slice axis: {axis!r}")
+
+
+def slice_match_records(
+    matched_records: Sequence[MatchedImageRecord],
+    *,
+    axis: SliceAxis,
+) -> dict[str, list[tuple[PredWheel, GTWheel]]]:
+    """Partition pre-matched pred/GT pairs into slice buckets."""
+    buckets = _empty_slice_buckets(axis)
+    for record in matched_records:
+        for p_idx, g_idx in record.match.matches:
+            pred = record.preds[p_idx]
+            gt = record.gts[g_idx]
+            if axis == "bbox_area":
+                key: str = classify_bbox_area(gt.bbox_xyxy)
+            else:
+                key = "with_occlusion" if has_occlusion(gt) else "without_occlusion"
+            buckets[key].append((pred, gt))
+    return buckets
 
 
 def slice_records(
@@ -477,28 +544,15 @@ def slice_records(
     occlusion-bucket is determined by the GT's keypoint visibilities,
     not the prediction's confidence.
     """
-    if axis == "bbox_area":
-        buckets: dict[str, list[tuple[list[PredWheel], list[GTWheel]]]] = {
-            "small": [],
-            "medium": [],
-            "large": [],
-        }
-    elif axis == "occlusion":
-        buckets = {"with_occlusion": [], "without_occlusion": []}
-    else:
-        raise ValueError(f"Unknown slice axis: {axis!r}")
-
-    for preds, gts in image_records:
-        m = match_predictions_to_gt(preds, gts, iou_threshold=iou_match)
-        for p_idx, g_idx in m.matches:
-            pred = preds[p_idx]
-            gt = gts[g_idx]
-            if axis == "bbox_area":
-                key: str = classify_bbox_area(gt.bbox_xyxy)
-            else:  # occlusion
-                key = "with_occlusion" if has_occlusion(gt) else "without_occlusion"
-            buckets[key].append(([pred], [gt]))
-    return buckets
+    matched_records = match_image_records(
+        [(None, preds, gts) for preds, gts in image_records],
+        iou_match=iou_match,
+    )
+    pair_buckets = slice_match_records(matched_records, axis=axis)
+    return {
+        bucket_name: [([pred], [gt]) for pred, gt in pairs]
+        for bucket_name, pairs in pair_buckets.items()
+    }
 
 
 def top_n_failures(
@@ -521,8 +575,8 @@ def top_n_failures(
     if n <= 0 or not pairs:
         return []
 
-    rows: list[tuple[float, dict]] = []
-    for mp in pairs:
+    rows: list[tuple[float, int, dict]] = []
+    for idx, mp in enumerate(pairs):
         errs = per_keypoint_pixel_errors(mp.pred, mp.gt)
         visible_errs = [e for e in errs if e is not None]
         if visible_errs:
@@ -533,6 +587,7 @@ def top_n_failures(
         rows.append(
             (
                 score,
+                idx,
                 {
                     "image": str(mp.image_path),
                     "score_px": score if score != float("-inf") else None,
@@ -543,8 +598,14 @@ def top_n_failures(
                 },
             )
         )
-    rows.sort(key=lambda r: r[0], reverse=True)
-    return [row for _, row in rows[:n]]
+    def rank_key(row: tuple[float, int, dict]) -> tuple[float, int]:
+        return row[0], -row[1]
+
+    if n < len(rows):
+        rows = heapq.nlargest(n, rows, key=rank_key)
+    else:
+        rows.sort(key=rank_key, reverse=True)
+    return [row for _, _, row in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -612,6 +673,21 @@ def compute_metrics(
     wrapper around ``_aggregate_pairs`` so callers (and the existing
     JSON schema) stay stable while slicing reuses the same primitive.
     """
+    matched_records = match_image_records(
+        [(None, preds, gts) for preds, gts in image_records],
+        iou_match=iou_match,
+    )
+    return compute_metrics_from_match_records(
+        matched_records,
+        sigmas=sigmas,
+    )
+
+
+def compute_metrics_from_match_records(
+    matched_records: Sequence[MatchedImageRecord],
+    sigmas: Sequence[float] = DEFAULT_SIGMAS,
+) -> dict:
+    """Aggregate pre-matched image records into the report dict."""
     total_gt = 0
     total_pred = 0
     total_matched = 0
@@ -619,15 +695,14 @@ def compute_metrics(
     total_fp = 0
     matched_pairs: list[tuple[PredWheel, GTWheel]] = []
 
-    for preds, gts in image_records:
-        total_gt += len(gts)
-        total_pred += len(preds)
-        m = match_predictions_to_gt(preds, gts, iou_threshold=iou_match)
-        total_matched += len(m.matches)
-        total_fn += len(m.unmatched_gt)
-        total_fp += len(m.unmatched_preds)
-        for p_idx, g_idx in m.matches:
-            matched_pairs.append((preds[p_idx], gts[g_idx]))
+    for record in matched_records:
+        total_gt += len(record.gts)
+        total_pred += len(record.preds)
+        total_matched += len(record.match.matches)
+        total_fn += len(record.match.unmatched_gt)
+        total_fp += len(record.match.unmatched_preds)
+        for p_idx, g_idx in record.match.matches:
+            matched_pairs.append((record.preds[p_idx], record.gts[g_idx]))
 
     agg = _aggregate_pairs(matched_pairs, sigmas=sigmas)
 
@@ -664,18 +739,26 @@ def compute_sliced_metrics(
     Buckets are emitted even when empty so consumers can rely on a
     stable key set.
     """
+    matched_records = match_image_records(
+        [(None, preds, gts) for preds, gts in image_records],
+        iou_match=iou_match,
+    )
+    return compute_sliced_metrics_from_match_records(matched_records, sigmas=sigmas)
+
+
+def compute_sliced_metrics_from_match_records(
+    matched_records: Sequence[MatchedImageRecord],
+    *,
+    sigmas: Sequence[float] = DEFAULT_SIGMAS,
+) -> dict:
+    """Return per-slice metrics using precomputed pred/GT matches."""
     out: dict[str, dict] = {"by_bbox_area": {}, "by_occlusion": {}}
     for axis_key, axis in (
         ("by_bbox_area", "bbox_area"),
         ("by_occlusion", "occlusion"),
     ):
-        buckets = slice_records(image_records, axis=axis, iou_match=iou_match)
-        for bucket_name, bucket_records in buckets.items():
-            pairs: list[tuple[PredWheel, GTWheel]] = []
-            for preds, gts in bucket_records:
-                # slice_records emits 1-pair lists, but be defensive.
-                for p, g in zip(preds, gts, strict=True):
-                    pairs.append((p, g))
+        buckets = slice_match_records(matched_records, axis=axis)
+        for bucket_name, pairs in buckets.items():
             out[axis_key][bucket_name] = _aggregate_pairs(pairs, sigmas=sigmas)
     return out
 
@@ -815,8 +898,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--data",
         type=Path,
-        default=Path("configs/dataset.yaml"),
-        help="Path to the YOLO dataset config (default: configs/dataset.yaml).",
+        default=Path("configs/pose_dataset.yaml"),
+        help="Path to the YOLO dataset config (default: configs/pose_dataset.yaml).",
     )
     p.add_argument("--split", default="val", choices=("train", "val"))
     p.add_argument(
@@ -918,7 +1001,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     # Track image_path alongside (preds, gts) so we can build a failure
-    # catalogue. The aggregator still consumes (preds, gts) only.
+    # catalogue and reuse one pred/GT match pass across all metrics.
     image_records_with_paths: list[tuple[Path, list[PredWheel], list[GTWheel]]] = []
     for img_path in images:
         img_w, img_h = read_image_size(img_path)
@@ -939,15 +1022,13 @@ def main() -> int:
         preds = extract_pred_wheels(result, conf_threshold=args.conf)
         image_records_with_paths.append((img_path, preds, gts))
 
-    image_records: list[tuple[list[PredWheel], list[GTWheel]]] = [
-        (preds, gts) for _, preds, gts in image_records_with_paths
-    ]
-
     sigmas = parse_sigmas(args.sigma)
-    metrics = compute_metrics(
-        image_records,
-        conf_threshold=args.conf,
+    matched_records = match_image_records(
+        image_records_with_paths,
         iou_match=args.iou_match,
+    )
+    metrics = compute_metrics_from_match_records(
+        matched_records,
         sigmas=sigmas,
     )
     metrics["counts"]["images"] = len(images)
@@ -964,18 +1045,15 @@ def main() -> int:
         device=device,
     )
 
-    sliced = compute_sliced_metrics(
-        image_records,
-        iou_match=args.iou_match,
+    sliced = compute_sliced_metrics_from_match_records(
+        matched_records,
         sigmas=sigmas,
     )
 
     # Failure catalogue: flatten all matched pairs once with their image
     # path via the shared collect_matched_pairs helper, then rank by
     # mean pixel error desc.
-    matched_pairs = collect_matched_pairs(
-        image_records_with_paths, iou_match=args.iou_match
-    )
+    matched_pairs = collect_matched_pairs_from_match_records(matched_records)
     failure_samples = top_n_failures(matched_pairs, n=args.worst_n, sigmas=sigmas)
 
     report = {

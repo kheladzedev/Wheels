@@ -43,8 +43,9 @@ must produce per frame:
      `disc_bottom`).
 3. **Frame identification** so AR can pair the response with the camera
    transform it saved at capture time.
-4. **Per-keypoint confidence and visibility** so AR can weight
-   observations and drop missing keypoints during RANSAC.
+4. **Wheel-level confidence** for coarse filtering/debug. Per-keypoint
+   confidence and visibility are not part of the confirmed JSON; wheels
+   with any occluded/missing A/B/C point are omitted entirely.
 
 This is exactly the payload contract in `docs/AR_ML_CONTRACT.md`.
 
@@ -55,30 +56,31 @@ Each row maps one PDF requirement to where it lives in the repo.
 | Spec text (PDF) | ML obligation | Where implemented / documented |
 |---|---|---|
 | "Нейросеть должна поддерживать обнаружение нескольких колес в одном кадре" | Multi-instance detection per frame | `src/infer_image.py` (iterates every box); `src/postprocess_wheels.py` `build_ar_payload`; round-trip tested at `tests/test_postprocess_wheels.py` |
-| "ключевые точки колеса" | 3 keypoints per wheel | `docs/KEYPOINT_SPEC.md`; `KEYPOINT_NAMES = ("rim_left", "rim_right", "disc_bottom")` in `src/postprocess_wheels.py`; internal-to-target mapping in `INTERNAL_TO_TARGET_KP`; contract pinned by `tests/test_ar_contract.py` |
+| "ключевые точки колеса" | 3 keypoints per wheel: `points.a`, `points.b`, `points.c_disc_bottom` | `docs/KEYPOINT_SPEC.md`; confirmed shape pinned by `tests/test_confirmed_ar_schema_shape.py` and `tests/test_ar_contract.py` |
 | "список найденных колес (может быть несколько)" | `wheels` is a list (zero or more) | `build_ar_payload` returns `{"wheels": [...]}`; pinned by `test_ar_contract.py` |
-| "Сохраняется трансформация камеры в момент захвата кадра" | AR owns transform; ML echoes `frame_id` / `timestamp` | `frame_id` / `timestamp` passed through `build_ar_payload`; pinned by `test_ar_contract.py::test_*_passes_through_frame_id_and_timestamp` |
+| "Сохраняется трансформация камеры в момент захвата кадра" | AR owns transform; ML echoes `frame_id` only in confirmed JSON | `src/infer_image.py`; `src/infer_batch.py`; pinned by confirmed-schema tests. `timestamp` exists only in legacy/debug payloads |
 | "Через некоторое время нейросеть возвращает" (async) | Stateless, per-frame inference; no temporal coupling | `docs/AR_ML_CONTRACT.md` → "ML is per-frame and stateless" |
 | "Восстановление позиции … raycast в плоскость пола … положение и ориентация плоскости колеса" | NOT ML | `docs/AR_ML_CONTRACT.md` Out-of-scope section; `CLAUDE.md` "What NOT to do here: don't add 3D / RANSAC / plane fitting" |
 | "Процесс повторяется K раз. Накапливаются наблюдения по каждому колесу" | NOT ML; K is AR-side budget | Open question `docs/QUESTIONS_FOR_TEAM.md` (K value not pinned) |
 | "Применяется RANSAC … Удаляются шумы и выбросы … Формируется стабильная плоскость колеса" | NOT ML | `docs/AR_ML_CONTRACT.md` Out-of-scope; `CLAUDE.md` |
-| "нижняя точка диска, полученная от нейросети" | Emit `disc_bottom` / `point_c_disc_bottom` per wheel | `KEYPOINT_NAMES[2]`; `INTERNAL_TO_TARGET_KP["disc_bottom"] == "point_c_disc_bottom"` |
+| "нижняя точка диска, полученная от нейросети" | Emit `points.c_disc_bottom` per wheel | `docs/KEYPOINT_SPEC.md`; `src/postprocess_wheels.py::to_confirmed_schema`; eval report key `c_disc_bottom` |
 | "raycast на ранее восстановленную плоскость … значения усредняются" | NOT ML | AR-side disc-height accumulation, documented in `AR_ML_CONTRACT.md` |
 | "временное обозначение … «кубик»" | NOT ML | AR visualisation only |
 | "Стоп … нейросеть останавливается" | Inference loop is AR-driven; ML script is invoked per call | `src/infer_image.py` is one-shot per image; no persistent state to "stop" |
 | "Main-состояние … выбрать колесо; менять цвет" | NOT ML | AR-side object manipulation |
 | "Mock-система: три точки в центре экрана … raycast из двух экранных точек … раскраска по третьей" | NOT ML; confirms 3-keypoint contract | `docs/KEYPOINT_SPEC.md` "Why three points specifically" explicitly mirrors this section |
-| "Чтобы корректно подобрать ransac параметры, мне нужен лог попаданий" | ML can help by enabling batch inference over AR-recorded videos | `src/infer_batch.py` (TBD), `src/infer_image.py` |
+| "Чтобы корректно подобрать ransac параметры, мне нужен лог попаданий" | AR owns hit logs because they require camera transform + floor raycast hits; ML can provide per-frame 2D detections for those logs | `docs/AR_MOCK_LOG_CONTRACT.md`; `src/infer_batch.py`; `src/infer_image.py` |
 
 ## Negative invariants the spec implies for ML
 
 These are things ML must NOT do. All are enforced by tests and policy.
 
 - No 3D world positions, no plane equations, no RANSAC residuals,
-  no inlier counts in the JSON. Tested in
-  `tests/test_ar_contract.py::test_current_wheel_must_not_contain_forbidden_fields`
-  and `test_target_wheel_must_not_contain_forbidden_fields`.
+  no inlier counts in the confirmed JSON. Tested in
+  `tests/test_confirmed_ar_schema_shape.py` and `tests/test_ar_contract.py`.
 - No cross-frame `track_id`. Same tests above.
+- No `timestamp`, per-keypoint `visibility`, or per-keypoint confidence
+  in the confirmed JSON.
 - No temporal smoothing or per-wheel state. `infer_image.py` is one-shot.
 - No camera intrinsics or extrinsics returned by ML. AR has these.
 
@@ -88,23 +90,16 @@ The table above covers every concrete obligation the PDF places on ML.
 If a future spec revision adds a requirement, add a row here AND add a
 contract test before changing the schema.
 
-## Open items pending AR sign-off
+## Still-open items pending AR sign-off
 
 These come from `docs/OPEN_QUESTIONS_AR_SPEC.md`. They are not contract
 violations — they are clarifications the spec did not include.
 
-- §1 Exact geometry of A / B / C (especially C: lowest visible point of
-  metal disc vs. hub centre vs. tire-road contact).
-- §2 Confirm per-wheel A/B (not screen-fixed).
-- §3 Final field names, value types, visibility encoding.
-- §4 `frame_id` / `timestamp` shape (string vs int vs UUID).
-- §5 Tracking ownership.
-- §6 Acceptable keypoint error budget.
+- §9 Acceptable keypoint error budget. AR explicitly said raw 2D pixel
+  budget is not enough; final acceptance should be 3D-side after raycast
+  and RANSAC. `src/eval_keypoints.py` still reports per-point pixel error
+  as an ML diagnostic.
 - §7 Unreal export capabilities (does it include 3D positions of A/B/C?).
-- §8 `bbox_xywh` vs `bbox_xyxy`.
-- §9 `keypoints` array-of-objects vs parallel dicts.
-- §10 Drop list confirmation (`image`, `image_size`, `thresholds`,
-  `stats`, `warnings`).
 
 Status (post 2026-05-14 schema-drift fix):
 - `src/infer_image.py` writes the **confirmed AR schema** as the primary

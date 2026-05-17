@@ -1,9 +1,9 @@
 # Keypoint Dataset Format — Android Plugin Incoming
 
-The Android collection plugin (landing 2026-05-13 evening per the AR
-team) drops batches of labelled frames into `data/incoming/android_plugin/`
-following the schema below. This document is the on-disk contract:
-the plugin author writes this, the ML side reads it.
+The Android / Unreal collection plugin drops batches of labelled frames
+into `data/incoming/android_plugin/` following the schema below. This
+document is the on-disk contract: the plugin author writes this, the ML
+side reads it. The latest AR-side confirmation is **2026-05-18**.
 
 For the runtime JSON contract (what ML emits at inference), see
 `docs/AR_ML_CONTRACT.md`. The two are intentionally similar but not
@@ -71,8 +71,8 @@ resolution.
 | `image` | string | Filename of the corresponding image, relative to `images/`. |
 | `wheels` | array | Zero or more entries. May be empty. |
 | `wheels[].bbox_xyxy` | `[x1, y1, x2, y2]` | Top-left + bottom-right, pixels. Must cover the entire wheel (tyre + rim). |
-| `wheels[].points.a` | `[x, y]` | Left point used for raycast / wheel-plane recovery. |
-| `wheels[].points.b` | `[x, y]` | Right point used for raycast / wheel-plane recovery. |
+| `wheels[].points.a` | `[x, y]` | Left floor-plane post-process point used for raycast / wheel-plane recovery. |
+| `wheels[].points.b` | `[x, y]` | Right floor-plane post-process point used for raycast / wheel-plane recovery. |
 | `wheels[].points.c_disc_bottom` | `[x, y]` | Lowest **visible** point of the metal disc / rim — not the tyre, not the hub centre. |
 
 ### Rules
@@ -86,7 +86,7 @@ resolution.
 4. **Occluded wheels are not added.** If any of `a` / `b` /
    `c_disc_bottom` is not visible (blocked by car body, another
    wheel, scene element), omit the whole wheel. Do not guess.
-   Confirmed AR decision 2026-05-13.
+   Confirmed AR decision 2026-05-13, re-confirmed 2026-05-18.
 5. `bbox_xyxy` must contain the entire wheel — tyre included. Use
    the same bbox an annotator would draw for the whole wheel
    silhouette.
@@ -105,6 +105,9 @@ resolution.
 10. There is no `track_id`, no `timestamp`, no 3D coordinates, no
     camera intrinsics inline. Camera metadata, if captured, goes in
     `metadata/source_info.json`.
+11. A limited Unreal/debug batch that lacks `bbox_xyxy` or a true
+    `c_disc_bottom` must not be marked training-approved even if the
+    raw points parse successfully.
 
 ### Example: empty frame
 

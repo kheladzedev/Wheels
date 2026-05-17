@@ -5,10 +5,12 @@ in the wheel-fitting pipeline. The boundary is deliberately narrow: ML
 emits per-frame, per-wheel 2D screen-space points; AR owns everything
 3D.
 
-The decisions below are **confirmed with the AR team** (responses
-received 2026-05-13 against the question set in
-`docs/OPEN_QUESTIONS_AR_SPEC.md`). Schema changes from here on require
-explicit AR sign-off — they are pinned by `tests/test_ar_contract.py`.
+The decisions below are **confirmed with the AR team** (initial
+responses received 2026-05-13 against the question set in
+`docs/OPEN_QUESTIONS_AR_SPEC.md`, then re-confirmed by the
+Unreal-side follow-up on 2026-05-18). Schema changes from here on
+require explicit AR sign-off — they are pinned by
+`tests/test_ar_contract.py`.
 
 ## Responsibility split
 
@@ -45,6 +47,14 @@ ML is **per-frame and stateless**. ML does **not**:
 Partially occluded wheels are excluded at annotation/training time and
 should not appear in inference output either. Every emitted wheel is
 implicitly "all three points visible".
+
+The primary inference exporter also filters out wheels whose A/B/C
+predictions violate the confirmed 2D floor-ray geometry: `a` must be
+left of `b`, A/B must sit on the lower floor-ray band of the wheel
+bbox, and `c_disc_bottom` must be above that A/B floor-ray line. Such
+candidates remain inspectable in legacy/debug artifacts, but they are
+not safe to emit in the confirmed AR JSON because the confirmed schema
+has no visibility or "needs review" field.
 
 ### AR side (client)
 
@@ -125,13 +135,13 @@ confirmed answer here so the contract is self-contained.
 | Item | Decision |
 |---|---|
 | §1 Definition of `c_disc_bottom` | Lowest visible point of the metal rim / disc (not the tire, not the hub centre). |
-| §2 Per-wheel A/B (not screen-fixed) | Yes, per-wheel. After AR raycasts `a` and `b` onto the floor plane, the vertical plane through the two floor projections is the wheel plane. |
+| §2 Per-wheel A/B (not screen-fixed) | Yes, per-wheel. A/B are floor-plane post-process points; after AR raycasts / filters them on the floor, the vertical plane through the two floor projections is the wheel plane. |
 | §3 Field names / shape | `a`, `b`, `c_disc_bottom` under `points`. Flat `[x, y]` lists. |
 | §3 Occlusion handling | Partially occluded wheels are **dropped** from annotation and inference. No `visibility` flag in the JSON. |
 | §4 Per-keypoint confidence | Not emitted. AR weights observations 3D-side. |
 | §5 `track_id` | Not emitted. AR associates wheels across frames by 3D position after raycast. |
 | §6 frame_id vs timestamp | `frame_id` only. `timestamp` is not part of the contract. |
-| §10 First target platform | Android first (TFLite / LiteRT). See `docs/ANDROID_FIRST_MODEL_PLAN.md`. |
+| §10 First target platform | Android first (TFLite / LiteRT). The production model path should be lightweight, MobileNetV2-class, skipless where possible. See `docs/ANDROID_FIRST_MODEL_PLAN.md`. |
 
 ## Out of scope for ML
 
@@ -146,16 +156,16 @@ These belong to AR and must not appear in the ML JSON:
 
 ## Contract tests
 
-The shape pinned in this document is enforced by
-`tests/test_ar_contract.py`. The currently checked-in tests pin the
-**transitional** schema (with `visibility`, `keypoints_confidence`,
-and the `wheel_bbox` / `bbox_xywh` variants) that predates the
-2026-05-13 confirmation. They will be migrated to the confirmed shape
-above as part of the code-side follow-up that ports
-`src/postprocess_wheels.py` and `src/infer_image.py`. Until that
-follow-up lands, this document reflects the **target**; the running
-inference code still emits the transitional shape behind a feature
-flag.
+The confirmed shape pinned in this document is enforced by
+`tests/test_confirmed_ar_schema_shape.py`, `tests/test_ar_contract.py`,
+`tests/test_infer_batch_schema.py`, and the primary output paths in
+`src/infer_image.py` / `src/infer_batch.py`.
+
+Legacy/debug payloads still exist for ML-side inspection, but they are
+not the AR contract. Any change that adds `timestamp`, `visibility`,
+per-keypoint confidence, `track_id`, 3D, raycast, plane, or RANSAC
+fields to the confirmed JSON must update the contract docs and tests
+explicitly.
 
 ## See also
 

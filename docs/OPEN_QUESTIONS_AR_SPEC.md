@@ -2,9 +2,10 @@
 
 Originally a focused list of items ML needed the AR team to confirm
 before the JSON contract and annotation conventions could be frozen.
-Most items were resolved by the AR-team response on **2026-05-13**;
-this document now tracks the resolved decisions plus the items still
-open after that round.
+Most items were resolved by the AR-team response on **2026-05-13** and
+then re-confirmed / tightened by the Unreal-side follow-up on
+**2026-05-18**. This document now tracks the resolved decisions plus
+the items still open after that round.
 
 For older, broader questions (data volume, K-frame accumulation
 parameter, ground-plane area `N`, etc.) see
@@ -13,7 +14,33 @@ spec-clarification round.
 
 ---
 
-## Resolved (2026-05-13)
+## Latest AR-side confirmation (2026-05-18)
+
+The Unreal/AR developer answered the current ML question set directly:
+
+- `c_disc_bottom` is the visually lowest visible point of the metal
+  rim / disc.
+- A/B are the two side floor-plane post-process points: AR uses them
+  on the floor plane, then builds the vertical wheel plane
+  perpendicular to the floor through those points.
+- Partially closed / occluded wheels are dropped.
+- No per-keypoint confidence.
+- No ML `track_id`; AR filters/associates by coordinates after its
+  3D/raycast stage.
+- `frame_id` is enough; no timestamp in the contract.
+- A new wheel-collection plugin is in progress; the developer said
+  Unreal can output essentially anything, but the collector may take
+  extra implementation time depending on requested fields.
+- First platform remains Android.
+
+The old limited raw Unreal batch (`0001.zip`) is therefore useful as
+debug / preview data only unless it also contains the agreed
+`bbox_xyxy` and true `c_disc_bottom` semantics. Do not promote that
+batch to production training merely because it parses.
+
+---
+
+## Resolved (2026-05-13, re-confirmed 2026-05-18)
 
 ### §1 — Definition of `c_disc_bottom` ✅
 
@@ -104,16 +131,25 @@ Codified in: `docs/ANDROID_FIRST_MODEL_PLAN.md`.
 
 ## Still open
 
-### §7 — Unreal export capabilities ⏳ in progress
+### §7 — Unreal export capabilities ⏳ partially resolved
 
-AR developer working on a collection plugin landing **evening of
-2026-05-13**. The plugin author said they can output essentially
-anything if we tell them what we want.
+AR developer is finishing a collection plugin. The latest answer says
+Unreal can output essentially anything, but each extra collector field
+may cost implementation time.
 
-**Asked but not yet committed in writing:** does the export include
-3D world positions of `a` / `b` / `c_disc_bottom` plus camera
-intrinsics + extrinsics? If yes, we can auto-generate 2D keypoint
-labels by projection (zero manual labelling for synthetic frames).
+**Still required for the next accepted training batch:**
+
+- `bbox_xyxy` around the full visible wheel (tyre + rim).
+- `points.a`, `points.b`, `points.c_disc_bottom` in final image pixel
+  coordinates.
+- Occluded wheels omitted entirely.
+- `frame_id` matching the image stem.
+
+**Still useful but not required in the ML JSON:** 3D world positions of
+`a` / `b` / `c_disc_bottom` plus camera intrinsics + extrinsics. If the
+Unreal export can include these, we can audit 2D labels against 3D
+projection and build an AR-side error metric. They must stay in
+metadata/debug artifacts, not in the confirmed ML -> AR response.
 
 Documented expectations for the plugin:
 `docs/PLUGIN_DATA_EXPECTATION.md`.
@@ -146,7 +182,6 @@ flowing.
 - `docs/PLUGIN_DATA_EXPECTATION.md` — what we expect from the plugin
   data feed once §7 lands.
 - `docs/ANDROID_FIRST_MODEL_PLAN.md` — model roadmap implied by §11.
-- `tests/test_ar_contract.py` — currently still pins the
-  transitional + earlier-target schemas; will be migrated to the
-  confirmed shape alongside the code port of
-  `src/postprocess_wheels.py` / `src/infer_image.py`.
+- `tests/test_ar_contract.py` and
+  `tests/test_confirmed_ar_schema_shape.py` — guard the confirmed
+  schema while keeping legacy/debug converter behavior explicit.

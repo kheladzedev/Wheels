@@ -67,6 +67,7 @@ DROP_OUT_OF_BOUNDS = "out_of_bounds"
 DROP_MISSING_POINTS = "missing_points"
 DROP_PARSE_ERROR = "parse_error"
 DROP_INVALID_BBOX = "invalid_bbox_after_clip"
+DROP_BAD_GEOMETRY = "bad_floorray_geometry"
 
 DROP_REASONS: tuple[str, ...] = (
     DROP_ALL_ZERO,
@@ -74,7 +75,15 @@ DROP_REASONS: tuple[str, ...] = (
     DROP_MISSING_POINTS,
     DROP_PARSE_ERROR,
     DROP_INVALID_BBOX,
+    DROP_BAD_GEOMETRY,
 )
+
+MIN_FLOOR_RAY_REL_Y = 0.80
+MIN_DISC_BOTTOM_REL_Y = 0.50
+MIN_AB_SEPARATION_RATIO = 0.50
+TARGET_FLOOR_RAY_REL_Y = 0.88
+TARGET_DISC_BOTTOM_REL_Y = 0.58
+TARGET_AB_SEPARATION_RATIO = 0.70
 
 
 @dataclass
@@ -136,6 +145,89 @@ def build_bbox_from_points(
     return x1, y1, x2, y2
 
 
+def build_bbox_from_floorray_points(
+    a: tuple[float, float],
+    b: tuple[float, float],
+    c: tuple[float, float],
+    image_w: int,
+    image_h: int,
+    min_size: int,
+) -> Optional[tuple[float, float, float, float]]:
+    """Estimate a full-wheel bbox from floor-ray A/B anchors and disc-bottom C."""
+    ax, ay = a
+    bx, by = b
+    cx, cy = c
+    if ax >= bx:
+        return None
+    floor_y = max(ay, by)
+    if not cy < floor_y:
+        return None
+
+    ab_sep = bx - ax
+    if ab_sep <= 0:
+        return None
+
+    height_from_ab = ab_sep / TARGET_AB_SEPARATION_RATIO
+    height_from_c = (floor_y - cy) / (
+        TARGET_FLOOR_RAY_REL_Y - TARGET_DISC_BOTTOM_REL_Y
+    )
+    height = max(float(min_size), height_from_ab, height_from_c)
+    width = max(float(min_size), height_from_ab)
+
+    center_x = 0.5 * (ax + bx)
+    half_w = 0.5 * width
+    x1 = center_x - half_w
+    x2 = center_x + half_w
+    if cx < x1:
+        shift = x1 - cx
+        x1 -= shift
+        x2 -= shift
+    elif cx > x2:
+        shift = cx - x2
+        x1 += shift
+        x2 += shift
+
+    y1 = floor_y - TARGET_FLOOR_RAY_REL_Y * height
+    y2 = y1 + height
+
+    x1 = max(0.0, x1)
+    y1 = max(0.0, y1)
+    x2 = min(float(image_w - 1), x2)
+    y2 = min(float(image_h - 1), y2)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return x1, y1, x2, y2
+
+
+def _floorray_geometry_ok(
+    bbox: tuple[float, float, float, float],
+    a: tuple[float, float],
+    b: tuple[float, float],
+    c: tuple[float, float],
+) -> bool:
+    x1, y1, x2, y2 = bbox
+    bbox_w = x2 - x1
+    bbox_h = y2 - y1
+    if bbox_w <= 0 or bbox_h <= 0:
+        return False
+    ax, ay = a
+    bx, by = b
+    _cx, cy = c
+    if ax >= bx:
+        return False
+    rel_y_a = (ay - y1) / bbox_h
+    rel_y_b = (by - y1) / bbox_h
+    rel_y_c = (cy - y1) / bbox_h
+    ab_sep_ratio = abs(bx - ax) / bbox_w
+    return (
+        rel_y_a >= MIN_FLOOR_RAY_REL_Y
+        and rel_y_b >= MIN_FLOOR_RAY_REL_Y
+        and rel_y_c > MIN_DISC_BOTTOM_REL_Y
+        and ab_sep_ratio >= MIN_AB_SEPARATION_RATIO
+        and cy < min(ay, by)
+    )
+
+
 def _drop(summary: ImportSummary, reason: str) -> None:
     summary.drop_counts[reason] = summary.drop_counts.get(reason, 0) + 1
 
@@ -185,9 +277,19 @@ def _try_build_wheel(
     right = pts["Right"]
     left = pts["Left"]
     center = pts["Center"]
-    bbox = build_bbox_from_points(right, left, center, image_w, image_h, margin)
+    bbox = build_bbox_from_floorray_points(
+        right,
+        left,
+        center,
+        image_w,
+        image_h,
+        min_size=margin,
+    )
     if bbox is None:
         _drop(summary, DROP_INVALID_BBOX)
+        return None
+    if not _floorray_geometry_ok(bbox, right, left, center):
+        _drop(summary, DROP_BAD_GEOMETRY)
         return None
 
     return {
@@ -319,12 +421,13 @@ def _write_metadata(
         },
         "mapping_basis": "plugin_author_confirmation",
         "bbox_strategy": (
-            f"axis-aligned bbox around 3 keypoints + {args.margin}px margin, "
-            "clipped to image bounds"
+            "estimated full-wheel bbox from A/B floor anchors and C disc-bottom, "
+            f"minimum side {args.margin}px, clipped to image bounds"
         ),
         "drop_policy": (
             "drop wheel if any required point is (0,0), missing, or outside "
-            "image bounds; or if the clipped bbox has zero area"
+            "image bounds; if the clipped bbox has zero area; or if A/B/C fail "
+            "the floor-ray geometry gate"
         ),
         "not_yet_training_approved": True,
         "requires_human_preview": True,

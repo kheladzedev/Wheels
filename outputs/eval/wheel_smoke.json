@@ -1,0 +1,57 @@
+{
+  "model": "runs/pose/wheel_smoke/weights/best.pt",
+  "data": "configs/dataset.yaml",
+  "split": "val",
+  "device": "mps",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.025,
+    0.025,
+    0.026
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default is small because wheel keypoints are tight targets vs COCO body parts; revisit once we have real-world annotation noise statistics.",
+  "counts": {
+    "gt_wheels": 25,
+    "pred_wheels_above_conf": 22,
+    "matched": 21,
+    "false_negatives": 4,
+    "false_positives": 1,
+    "images": 8
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 22.225377955154336,
+      "mean": 22.58327074075436,
+      "p95": 39.3363785421914,
+      "p99": 47.48232684268216,
+      "n": 21
+    },
+    "point_b": {
+      "median": 29.637898328054757,
+      "mean": 30.62560900833614,
+      "p95": 45.754957602712246,
+      "p99": 50.025068475081255,
+      "n": 21
+    },
+    "point_c_disc_bottom": {
+      "median": 37.507404340290854,
+      "mean": 36.87134078536535,
+      "p95": 52.233143042300306,
+      "p99": 53.45331172392049,
+      "n": 21
+    }
+  },
+  "oks": {
+    "mean": 2.6875428973118968e-06,
+    "n": 21
+  },
+  "rates": {
+    "false_negative_rate": 0.16,
+    "false_positive_rate": 0.045454545454545456
+  }
+}

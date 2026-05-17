@@ -2,10 +2,13 @@
 
 Confirmed keypoint contract for the wheel-detection model, per the AR
 team's 2026-05-13 response to `docs/OPEN_QUESTIONS_AR_SPEC.md` and the
-**2026-05-14 semantic clarification** of the AR mock-system spec. ML
-emits exactly three screen-space points per **fully-visible** wheel;
-AR raycasts them and recovers the wheel's 3D plane plus the
-disc-bottom position.
+**2026-05-14 semantic clarification** of the AR mock-system spec. The
+Unreal-side follow-up on **2026-05-18** re-confirmed the same semantics:
+C is the visually lowest point of the metal rim / disc; A/B are
+floor-plane post-process points; occluded wheels are dropped; no
+per-keypoint confidence; `frame_id` is enough. ML emits exactly three
+screen-space points per **fully-visible** wheel; AR raycasts them and
+recovers the wheel's 3D plane plus the disc-bottom position.
 
 > **Semantic revision 2026-05-14.** Earlier iterations of this doc
 > described A and B as the *left / right edge of the metal rim*. The
