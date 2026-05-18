@@ -78,6 +78,8 @@ def test_accept_unreal_export_runner_end_to_end(tmp_path: Path) -> None:
     assert report["technical_status"] == "PASS"
     assert report["review_status"] == "READY_FOR_HUMAN_PREVIEW"
     assert report["training_status"].startswith("NOT_APPROVED_FOR_TRAINING")
+    assert report["data_quality_gate"]["passed"] is False
+    assert "usable_ratio" in report["data_quality_gate"]["metrics"]
     assert report["raw_export"]["images"] == 1
     assert report["import"]["valid_wheels"] == 1
     assert report["import"]["bbox_strategy_counts"]["top_points"] == 1
@@ -85,3 +87,31 @@ def test_accept_unreal_export_runner_end_to_end(tmp_path: Path) -> None:
     assert report["conversion"]["wheels"] == 1
     assert (out_root / "unreal_0002_trial" / "acceptance_report.md").is_file()
 
+
+def test_accept_unreal_export_can_fail_on_data_quality_gate(tmp_path: Path) -> None:
+    source = tmp_path / "0002"
+    _build_fake_0002_export(source)
+    out_root = tmp_path / "acceptance"
+
+    rc = accept.main(
+        [
+            "--source-root",
+            str(source),
+            "--source-name",
+            "0002_trial_fail_gate",
+            "--out-root",
+            str(out_root),
+            "--preview-count",
+            "1",
+            "--overwrite",
+            "--fail-on-data-quality-gate",
+        ]
+    )
+
+    assert rc == 1
+    report_path = (
+        out_root / "unreal_0002_trial_fail_gate" / "acceptance_report.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["technical_status"] == "PASS"
+    assert report["data_quality_gate"]["passed"] is False

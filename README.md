@@ -349,10 +349,22 @@ Artifacts land under
 
 - `acceptance_report.md` / `.json` — counts, drop reasons, paths, status.
 - `inspection/` — raw keyPoint status report and raw overlays.
+- `inspection/previews/by_status/` — status-specific galleries for
+  invalid objects (`OUT_OF_BOUNDS`, `PARTIAL_ZERO`, `EMPTY_ALL_ZERO`, etc.).
 - `incoming/` — imported `images/annotations/metadata` contract.
 - `pose_dataset/` — converted YOLO-pose dataset.
 - `previews/incoming/` and `previews/pose/train/` — visual review gates.
 - `logs/` — per-step stdout/stderr logs.
+
+The acceptance report has two separate gates:
+
+- **Technical status** — does the raw archive parse, import, validate,
+  convert, preview, and optionally smoke-train?
+- **ML data-quality gate** — does the archive look clean enough to train
+  without first fixing the exporter? Defaults require `usable_ratio >= 0.60`,
+  `invalid_required_ratio <= 0.20`, `bad_geometry_ratio <= 0.15`, and low
+  bbox fallback / empty-label rates. A trial can have technical `PASS` while
+  still being `NOT_APPROVED_FOR_TRAINING_DATA_QUALITY_GATE_FAILED`.
 
 When the **first** real Android-plugin batch lands, run the dedicated
 acceptance workflow before anything else. It validates the incoming

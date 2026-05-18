@@ -259,9 +259,12 @@ def test_inspect_end_to_end(tmp_path: Path):
     assert (out / "report.md").is_file()
     loaded = json.loads((out / "report.json").read_text())
     assert loaded["counts_by_status"] == counts
+    assert loaded["status_previews"][ix.STATUS_VALID]
+    assert loaded["status_previews"][ix.STATUS_OUT_OF_BOUNDS]
 
     md = (out / "report.md").read_text()
     assert "RAW EXPORT" in md or "Raw Unreal export inspection" in md
+    assert "Status preview galleries" in md
     assert "Contract notes" in md
     assert "NOT_APPROVED_FOR_TRAINING" in md
 

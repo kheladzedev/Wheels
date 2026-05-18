@@ -136,6 +136,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=Path("outputs/unreal_export_inspection"),
     )
     p.add_argument("--max-preview", type=int, default=30)
+    p.add_argument(
+        "--max-status-preview",
+        type=int,
+        default=10,
+        help="How many per-status frames to render under previews/by_status/<status>/.",
+    )
     p.add_argument("--seed", type=int, default=42)
     return p.parse_args(argv)
 
@@ -487,6 +493,27 @@ def inspect(args: argparse.Namespace) -> dict:
         if img_path is not None and draw_preview(img_path, by_frame[fid], out_path):
             drawn.append(str(out_path.relative_to(out_dir)))
 
+    status_previews: dict[str, list[str]] = {}
+    by_status_root = previews_dir / "by_status"
+    for status in ALL_STATUSES:
+        if args.max_status_preview <= 0:
+            status_previews[status] = []
+            continue
+        status_fids = [
+            fid for fid in candidates if any(o.status == status for o in by_frame[fid])
+        ]
+        status_drawn: list[str] = []
+        status_dir = by_status_root / status
+        for fid in status_fids[: args.max_status_preview]:
+            img_path = frames[fid].get("image")
+            if img_path is None:
+                continue
+            status_dir.mkdir(parents=True, exist_ok=True)
+            out_path = status_dir / f"{fid}.jpg"
+            if draw_preview(img_path, by_frame[fid], out_path):
+                status_drawn.append(str(out_path.relative_to(out_dir)))
+        status_previews[status] = status_drawn
+
     report = {
         "source_root": str(src),
         "n_images": n_images,
@@ -498,6 +525,7 @@ def inspect(args: argparse.Namespace) -> dict:
         "image_resolutions": res_counter,
         "examples_by_status": examples,
         "previews": drawn,
+        "status_previews": status_previews,
         "contract_notes": [
             "Right maps to points.a, Left maps to points.b, Center maps to "
             "points.c_disc_bottom per plugin-author confirmation.",
@@ -587,9 +615,18 @@ def write_md(path: Path, report: dict) -> None:
         "Out-of-image points are clamped to the image edge, drawn with a "
         "tilted cross, and labelled with a trailing `*`.",
         "",
-        "## Contract notes",
-        "",
     ]
+    lines += ["## Status preview galleries", ""]
+    for status in ALL_STATUSES:
+        paths = report.get("status_previews", {}).get(status, [])
+        if not paths:
+            continue
+        lines.append(
+            f"- `{status}`: {len(paths)} frame(s) under "
+            f"`previews/by_status/{status}/`"
+        )
+    lines.append("")
+    lines += ["## Contract notes", ""]
     for i, q in enumerate(report["contract_notes"], 1):
         lines.append(f"{i}. {q}")
     lines += ["", "## Training acceptance", "", report["training_acceptance"], ""]

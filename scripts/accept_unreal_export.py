@@ -79,6 +79,57 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--overwrite", action="store_true")
     p.add_argument("--max-skip-ratio", type=float, default=0.05)
     p.add_argument("--max-warning-ratio", type=float, default=0.10)
+    p.add_argument(
+        "--min-usable-ratio",
+        type=float,
+        default=0.60,
+        help="Training data-quality gate: minimum valid wheels / raw objects.",
+    )
+    p.add_argument(
+        "--max-invalid-required-ratio",
+        type=float,
+        default=0.20,
+        help=(
+            "Training data-quality gate: maximum raw objects with partial-zero "
+            "or out-of-bounds required Right/Left/Center points."
+        ),
+    )
+    p.add_argument(
+        "--max-all-zero-ratio",
+        type=float,
+        default=0.25,
+        help="Training data-quality gate: maximum all-zero raw objects.",
+    )
+    p.add_argument(
+        "--max-bad-geometry-ratio",
+        type=float,
+        default=0.15,
+        help="Training data-quality gate: maximum imported drops by bad geometry.",
+    )
+    p.add_argument(
+        "--max-bbox-fallback-ratio",
+        type=float,
+        default=0.10,
+        help=(
+            "Training data-quality gate: maximum valid wheels whose bbox was "
+            "built by fallback floor-ray heuristic instead of LeftTop/RightTop."
+        ),
+    )
+    p.add_argument(
+        "--max-empty-label-image-ratio",
+        type=float,
+        default=0.30,
+        help="Training data-quality gate: maximum converted images with empty labels.",
+    )
+    p.add_argument(
+        "--fail-on-data-quality-gate",
+        action="store_true",
+        help=(
+            "Exit non-zero when the ML data-quality gate fails. By default, a "
+            "failed data-quality gate is reported but does not make the "
+            "technical pipeline run fail."
+        ),
+    )
     p.add_argument("--smoke-train", action="store_true")
     p.add_argument("--smoke-model", default="yolo11n-pose.pt")
     p.add_argument("--smoke-epochs", type=int, default=1)
@@ -109,6 +160,124 @@ def _json_or_empty(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError):
         return {}
     return loaded if isinstance(loaded, dict) else {}
+
+
+def _ratio(n: int | float, d: int | float) -> float:
+    return 0.0 if d <= 0 else float(n) / float(d)
+
+
+def _count_empty_labels(dataset_root: Path) -> dict[str, int]:
+    out = {"label_files": 0, "empty_label_files": 0}
+    labels_root = dataset_root / "labels"
+    if not labels_root.is_dir():
+        return out
+    for label_file in labels_root.glob("*/*.txt"):
+        if not label_file.is_file():
+            continue
+        out["label_files"] += 1
+        if not label_file.read_text(encoding="utf-8").strip():
+            out["empty_label_files"] += 1
+    return out
+
+
+def _evaluate_data_quality_gate(
+    inspection: dict[str, Any],
+    import_report: dict[str, Any],
+    conversion: dict[str, Any],
+    dataset_root: Path,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    counts = inspection.get("counts_by_status") or {}
+    drops = import_report.get("drop_counts") or {}
+    bbox_counts = import_report.get("bbox_strategy_counts") or {}
+
+    raw_objects = int(inspection.get("n_keypoint_object_files") or 0)
+    valid_wheels = int(import_report.get("valid_wheels") or 0)
+    all_zero = int(counts.get("EMPTY_ALL_ZERO") or 0)
+    invalid_required = int(counts.get("OUT_OF_BOUNDS") or 0) + int(
+        counts.get("PARTIAL_ZERO") or 0
+    )
+    bad_geometry = int(drops.get("bad_floorray_geometry") or 0)
+    bbox_fallback = int(bbox_counts.get("floorray") or 0)
+    label_stats = _count_empty_labels(dataset_root)
+
+    metrics = {
+        "usable_ratio": _ratio(valid_wheels, raw_objects),
+        "invalid_required_ratio": _ratio(invalid_required, raw_objects),
+        "all_zero_ratio": _ratio(all_zero, raw_objects),
+        "bad_geometry_ratio": _ratio(bad_geometry, raw_objects),
+        "bbox_fallback_ratio": _ratio(bbox_fallback, valid_wheels),
+        "empty_label_image_ratio": _ratio(
+            label_stats["empty_label_files"], label_stats["label_files"]
+        ),
+    }
+    thresholds = {
+        "min_usable_ratio": args.min_usable_ratio,
+        "max_invalid_required_ratio": args.max_invalid_required_ratio,
+        "max_all_zero_ratio": args.max_all_zero_ratio,
+        "max_bad_geometry_ratio": args.max_bad_geometry_ratio,
+        "max_bbox_fallback_ratio": args.max_bbox_fallback_ratio,
+        "max_empty_label_image_ratio": args.max_empty_label_image_ratio,
+    }
+    reasons: list[str] = []
+    if metrics["usable_ratio"] < args.min_usable_ratio:
+        reasons.append(
+            f"usable_ratio={metrics['usable_ratio']:.4f} < "
+            f"min_usable_ratio={args.min_usable_ratio:.4f} "
+            f"({valid_wheels}/{raw_objects} raw objects usable)"
+        )
+    if metrics["invalid_required_ratio"] > args.max_invalid_required_ratio:
+        reasons.append(
+            f"invalid_required_ratio={metrics['invalid_required_ratio']:.4f} > "
+            f"max_invalid_required_ratio={args.max_invalid_required_ratio:.4f} "
+            f"({invalid_required}/{raw_objects} partial-zero or OOB objects)"
+        )
+    if metrics["all_zero_ratio"] > args.max_all_zero_ratio:
+        reasons.append(
+            f"all_zero_ratio={metrics['all_zero_ratio']:.4f} > "
+            f"max_all_zero_ratio={args.max_all_zero_ratio:.4f} "
+            f"({all_zero}/{raw_objects} all-zero objects)"
+        )
+    if metrics["bad_geometry_ratio"] > args.max_bad_geometry_ratio:
+        reasons.append(
+            f"bad_geometry_ratio={metrics['bad_geometry_ratio']:.4f} > "
+            f"max_bad_geometry_ratio={args.max_bad_geometry_ratio:.4f} "
+            f"({bad_geometry}/{raw_objects} geometry drops)"
+        )
+    if metrics["bbox_fallback_ratio"] > args.max_bbox_fallback_ratio:
+        reasons.append(
+            f"bbox_fallback_ratio={metrics['bbox_fallback_ratio']:.4f} > "
+            f"max_bbox_fallback_ratio={args.max_bbox_fallback_ratio:.4f} "
+            f"({bbox_fallback}/{valid_wheels} valid bboxes used fallback)"
+        )
+    if metrics["empty_label_image_ratio"] > args.max_empty_label_image_ratio:
+        reasons.append(
+            f"empty_label_image_ratio={metrics['empty_label_image_ratio']:.4f} > "
+            f"max_empty_label_image_ratio={args.max_empty_label_image_ratio:.4f} "
+            f"({label_stats['empty_label_files']}/{label_stats['label_files']} "
+            "converted images have no labels)"
+        )
+
+    return {
+        "passed": len(reasons) == 0,
+        "metrics": metrics,
+        "thresholds": thresholds,
+        "reasons": reasons,
+        "counts": {
+            "raw_objects": raw_objects,
+            "valid_wheels": valid_wheels,
+            "all_zero": all_zero,
+            "invalid_required": invalid_required,
+            "bad_geometry": bad_geometry,
+            "bbox_fallback": bbox_fallback,
+            **label_stats,
+        },
+        "note": (
+            "This gate is stricter than technical conversion. It answers whether "
+            "a full batch looks clean enough to train without first fixing the "
+            "exporter or reviewing a large number of bad frames."
+        ),
+    }
 
 
 def _write_data_yaml(path: Path, dataset_root: Path) -> None:
@@ -182,7 +351,7 @@ def _summarise(
     work_root: Path,
     paths: dict[str, Path],
     steps: list[StepResult],
-    smoke_train: bool,
+    args: argparse.Namespace,
 ) -> dict[str, Any]:
     inspection = _json_or_empty(paths["inspection"] / "report.json")
     import_report = _json_or_empty(paths["incoming"] / "metadata" / "import_report.json")
@@ -194,6 +363,9 @@ def _summarise(
     valid_wheels = int(import_report.get("valid_wheels") or 0)
     qg = conversion.get("quality_gate") or {}
     quality_gate_passed = bool(qg.get("passed", False)) if conversion else False
+    data_quality_gate = _evaluate_data_quality_gate(
+        inspection, import_report, conversion, paths["dataset"], args
+    )
 
     technical_status = (
         "PASS" if all_required_steps_ok and valid_wheels > 0 and quality_gate_passed else "FAIL"
@@ -203,9 +375,12 @@ def _summarise(
         if technical_status == "PASS"
         else "BLOCKED_BEFORE_HUMAN_PREVIEW"
     )
-    training_status = (
-        "NOT_APPROVED_FOR_TRAINING_UNTIL_HUMAN_PREVIEW_ACCEPTS_GEOMETRY"
-    )
+    if technical_status != "PASS":
+        training_status = "NOT_APPROVED_FOR_TRAINING_TECHNICAL_GATE_FAILED"
+    elif not data_quality_gate["passed"]:
+        training_status = "NOT_APPROVED_FOR_TRAINING_DATA_QUALITY_GATE_FAILED"
+    else:
+        training_status = "NOT_APPROVED_FOR_TRAINING_UNTIL_HUMAN_PREVIEW_ACCEPTS_GEOMETRY"
 
     return {
         "source_root": str(source_root),
@@ -215,7 +390,8 @@ def _summarise(
         "technical_status": technical_status,
         "review_status": review_status,
         "training_status": training_status,
-        "smoke_train_requested": smoke_train,
+        "smoke_train_requested": args.smoke_train,
+        "data_quality_gate": data_quality_gate,
         "steps": [
             {
                 "name": s.name,
@@ -250,6 +426,7 @@ def _summarise(
         },
         "artifacts": {
             "inspection_report_md": str(paths["inspection"] / "report.md"),
+            "status_preview_root": str(paths["inspection"] / "previews" / "by_status"),
             "incoming_root": str(paths["incoming"]),
             "incoming_preview_dir": str(paths["incoming_preview"]),
             "pose_dataset_root": str(paths["dataset"]),
@@ -295,9 +472,31 @@ def _write_md(path: Path, report: dict[str, Any]) -> None:
     lines += ["", "## BBox Strategy Counts", ""]
     for key, value in sorted((imp.get("bbox_strategy_counts") or {}).items()):
         lines.append(f"- `{key}`: {value}")
+    dqg = report.get("data_quality_gate") or {}
     lines += [
         "",
-        "## Quality Gate",
+        "## ML Data Quality Gate",
+        "",
+        f"- Passed: **{dqg.get('passed')}**",
+        "",
+        "### Metrics",
+        "",
+    ]
+    for key, value in sorted((dqg.get("metrics") or {}).items()):
+        lines.append(f"- `{key}`: {float(value):.4f}")
+    lines += ["", "### Thresholds", ""]
+    for key, value in sorted((dqg.get("thresholds") or {}).items()):
+        lines.append(f"- `{key}`: {float(value):.4f}")
+    reasons = dqg.get("reasons") or []
+    lines += ["", "### Reasons", ""]
+    if reasons:
+        for reason in reasons:
+            lines.append(f"- {reason}")
+    else:
+        lines.append("- none")
+    lines += [
+        "",
+        "## Conversion Quality Gate",
         "",
         f"```json\n{json.dumps(conv.get('quality_gate') or {}, indent=2)}\n```",
         "",
@@ -325,9 +524,9 @@ def _write_reports(
     work_root: Path,
     paths: dict[str, Path],
     steps: list[StepResult],
-    smoke_train: bool,
+    args: argparse.Namespace,
 ) -> dict[str, Any]:
-    report = _summarise(source_root, source_name, work_root, paths, steps, smoke_train)
+    report = _summarise(source_root, source_name, work_root, paths, steps, args)
     json_path = work_root / "acceptance_report.json"
     md_path = work_root / "acceptance_report.md"
     json_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
@@ -506,7 +705,7 @@ def run(args: argparse.Namespace) -> int:
             failed = not result.ok
 
     report = _write_reports(
-        source_root, source_name, work_root, paths, steps, args.smoke_train
+        source_root, source_name, work_root, paths, steps, args
     )
 
     print()
@@ -514,7 +713,12 @@ def run(args: argparse.Namespace) -> int:
     print(f"Technical status:  {report['technical_status']}")
     print(f"Review status:     {report['review_status']}")
     print(f"Training status:   {report['training_status']}")
-    return 1 if failed or report["technical_status"] != "PASS" else 0
+    data_quality_failed = not report["data_quality_gate"]["passed"]
+    return 1 if (
+        failed
+        or report["technical_status"] != "PASS"
+        or (args.fail_on_data_quality_gate and data_quality_failed)
+    ) else 0
 
 
 def main(argv: list[str] | None = None) -> int:
