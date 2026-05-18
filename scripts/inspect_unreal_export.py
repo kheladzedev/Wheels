@@ -50,17 +50,20 @@ import numpy as np
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 POINT_NAMES = ("Right", "Left", "Center")
+OPTIONAL_POINT_NAMES = ("LeftTop", "RightTop")
+ALL_POINT_NAMES = POINT_NAMES + OPTIONAL_POINT_NAMES
 ZERO_EPS = 1e-6
 
 # Two formats observed in the wild — be tolerant.
 #   Unreal:  {name:"Right",XY:1.0,2.0},
 #   Simple:  Right: 1.0,2.0
 UNREAL_RE = re.compile(
-    r'name\s*:\s*"(Right|Left|Center)"\s*,\s*'
+    r'name\s*:\s*"(Right|Left|Center|LeftTop|RightTop)"\s*,\s*'
     r"XY\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)"
 )
 SIMPLE_RE = re.compile(
-    r"^\s*(Right|Left|Center)\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$",
+    r"^\s*(Right|Left|Center|LeftTop|RightTop)\s*:"
+    r"\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$",
     re.MULTILINE,
 )
 
@@ -93,7 +96,15 @@ ALL_STATUSES = (
 COLOR_RIGHT = (255, 0, 0)
 COLOR_LEFT = (0, 255, 0)
 COLOR_CENTER = (0, 0, 255)
-COLOR_MAP = {"Right": COLOR_RIGHT, "Left": COLOR_LEFT, "Center": COLOR_CENTER}
+COLOR_LEFT_TOP = (0, 220, 255)
+COLOR_RIGHT_TOP = (255, 0, 255)
+COLOR_MAP = {
+    "Right": COLOR_RIGHT,
+    "Left": COLOR_LEFT,
+    "Center": COLOR_CENTER,
+    "LeftTop": COLOR_LEFT_TOP,
+    "RightTop": COLOR_RIGHT_TOP,
+}
 
 
 @dataclass
@@ -136,7 +147,10 @@ def parse_keypoint_text(text: str) -> dict[str, tuple[float, float]]:
     """Parse a keyPoint .txt body.
 
     Tolerant of the two formats seen in real exports. Returns a dict
-    ``{Right|Left|Center: (x, y)}``. Names not found are absent.
+    ``{Right|Left|Center|LeftTop|RightTop: (x, y)}``. Names not found
+    are absent. Only Right/Left/Center are required for the legacy
+    status classification; LeftTop/RightTop are optional bbox helpers
+    observed in the newer 0002 trial export.
     """
     out: dict[str, tuple[float, float]] = {}
     for m in UNREAL_RE.finditer(text):
@@ -314,7 +328,11 @@ def draw_preview(
     h, w = img.shape[:2]
 
     _put_text(
-        img, "RAW EXPORT: mapping unconfirmed", (12, 36), (255, 255, 255), scale=0.9
+        img,
+        "RAW EXPORT: confirmed Right/Left/Center mapping",
+        (12, 36),
+        (255, 255, 255),
+        scale=0.9,
     )
 
     for obj in objects_for_frame:
@@ -326,7 +344,7 @@ def draw_preview(
             continue
 
         anchor: tuple[int, int] | None = None
-        for name in POINT_NAMES:
+        for name in ALL_POINT_NAMES:
             if name not in obj.points:
                 continue
             x, y = obj.points[name]
@@ -480,25 +498,19 @@ def inspect(args: argparse.Namespace) -> dict:
         "image_resolutions": res_counter,
         "examples_by_status": examples,
         "previews": drawn,
-        "open_questions_for_plugin_author": [
-            "Does Right/Left correspond to A/B floor-ray points (screen-space "
-            "points that AR raycasts onto the floor near the wheel "
-            "footprint), or to metal-rim edges?",
-            "What exactly is Center: lowest visible point of the metal rim "
-            "(our C / c_disc_bottom), the wheel geometric center, or "
-            "something else?",
-            "Should objects with (0, 0) points or out-of-image coordinates "
-            "be dropped at ingestion, or do they encode a partially-visible "
-            "wheel signal we should preserve?",
-            "Are coordinates already in image pixel coordinates of the "
-            "exported JPEG, or in some other space (rendered frame buffer, "
-            "normalised, etc.)?",
-            "Is Ground metadata (DeltaZ, Roll, Pitch, FOV) needed by ML, or "
-            "is it AR/debug-side only?",
+        "contract_notes": [
+            "Right maps to points.a, Left maps to points.b, Center maps to "
+            "points.c_disc_bottom per plugin-author confirmation.",
+            "LeftTop/RightTop are optional bbox helper points observed in "
+            "the 0002 trial export.",
+            "(0,0), missing required points, and out-of-image required "
+            "points are treated as invisible/invalid and dropped by import.",
+            "Ground metadata is preserved in the import report only; ML "
+            "training and inference stay on image pixels + 2D points.",
         ],
         "training_acceptance": (
-            "BLOCKED — mapping Right/Left/Center -> A/B/C must be confirmed "
-            "with the plugin author before any training run."
+            "NOT_APPROVED_FOR_TRAINING — run import/validation/conversion "
+            "and manually inspect previews before accepting a full batch."
         ),
     }
 
@@ -563,19 +575,22 @@ def write_md(path: Path, report: dict) -> None:
         "## Previews",
         "",
         f"{len(report['previews'])} preview images in `previews/`. Overlay "
-        "title is **RAW EXPORT: mapping unconfirmed**. Point colors:",
+        "title is **RAW EXPORT: confirmed Right/Left/Center mapping**. "
+        "Point colors:",
         "",
         "- Right — blue",
         "- Left — green",
         "- Center — red",
+        "- LeftTop — yellow/cyan",
+        "- RightTop — magenta",
         "",
         "Out-of-image points are clamped to the image edge, drawn with a "
         "tilted cross, and labelled with a trailing `*`.",
         "",
-        "## Open questions for plugin author",
+        "## Contract notes",
         "",
     ]
-    for i, q in enumerate(report["open_questions_for_plugin_author"], 1):
+    for i, q in enumerate(report["contract_notes"], 1):
         lines.append(f"{i}. {q}")
     lines += ["", "## Training acceptance", "", report["training_acceptance"], ""]
 

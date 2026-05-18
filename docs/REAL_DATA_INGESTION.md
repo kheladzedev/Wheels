@@ -27,9 +27,7 @@ Future model cards will need it.
 The model learns one class with three keypoints. Required per wheel:
 
 - `wheel` bbox covering the whole tire + rim.
-- 3 keypoints in fixed order: `rim_left`, `rim_right`, `disc_bottom`.
-- Visibility flag per keypoint (`0` not-labelled, `1` occluded, `2`
-  visible).
+- 3 keypoints in fixed order: `a`, `b`, `c_disc_bottom`.
 
 There is no separate "MVP" annotation tier anymore — the AR spec requires
 keypoints, and the model is trained with keypoints from day one. Bbox-only
@@ -39,12 +37,10 @@ Annotator-facing rules live in `docs/ANNOTATION_GUIDELINES.md`; labelling
 tool setup (CVAT project config, COCO → interim-JSON path) lives in
 `docs/ANNOTATION_TOOLING.md`.
 
-Optional, nice to have:
-
-- Per-keypoint confidence at annotation time (e.g. annotator's subjective
-  certainty). We don't currently consume it but it survives in the
-  incoming JSON.
-- Instance masks — useful for occlusion-heavy training; not required.
+No per-keypoint confidence or visibility flag is part of the confirmed
+plugin/ML contract. Occluded wheels are omitted entirely. Instance masks are
+still useful for debugging or future experiments, but they are not required
+by the current training path.
 
 ## 3. Incoming data layout
 
@@ -148,15 +144,17 @@ For every rendered frame, the Unreal export should produce:
 **Required:**
 - `rgb` image — PNG or high-quality JPG.
 - `wheel` 2D bboxes.
-- 3 keypoints per wheel in the canonical order (`rim_left`, `rim_right`,
-  `disc_bottom`), each with a `visibility` flag.
+- 3 keypoints per wheel in the canonical order (`a`, `b`,
+  `c_disc_bottom`): A/B are floor-ray points, C is the lowest visible
+  metal-rim/disc point.
 
 **Strongly preferred** (cheap from Unreal, expensive to re-derive):
 
 - Camera intrinsics (`fx, fy, cx, cy`) and extrinsics (camera-to-world).
 - **3D world positions** of each of the 3 keypoints. We project them to 2D
   for label files; the 3D positions stay in the incoming JSON for future
-  evaluation or weak supervision experiments.
+  evaluation or weak supervision experiments. They are not emitted by ML
+  inference.
 - 3D world position of the wheel hub (centre of rotation) — useful as a
   derived signal.
 

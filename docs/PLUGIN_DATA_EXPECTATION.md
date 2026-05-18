@@ -73,6 +73,30 @@ production training if it lacks full-wheel bbox or if its `Center`
 point is a contact point rather than the true `c_disc_bottom`. Such a
 batch may be kept for parser, preview, and service smoke tests only.
 
+The later `0002` trial format is technically acceptable for intake when
+it keeps this raw layout:
+
+```
+<batch>/
+  Images/<frame_id>.jpg
+  keyPoint/<frame_id>/<object_id>.txt
+```
+
+Each keyPoint object should contain:
+
+- `Right` — maps to `points.a`.
+- `Left` — maps to `points.b`.
+- `Center` — maps to `points.c_disc_bottom`.
+- `LeftTop` and `RightTop` — optional bbox helper points. When both are
+  present, non-zero, and inside the image, the importer builds the
+  full-wheel bbox from all five points. If the Unreal collector can add
+  an explicit `BBox: x1,y1,x2,y2`, that is still preferred.
+
+Coordinates must be pixels in the final exported image coordinate system
+(`0..2048` for the current square renders). Objects with `0,0`, missing
+required points, or out-of-bounds required points are treated as
+invisible/invalid and dropped during import.
+
 ### Required fields
 
 - `frame_id` — string, must match the image stem.
@@ -113,25 +137,18 @@ needs to find it.
 Once the batch is dropped in place:
 
 ```bash
-./.venv/bin/python src/convert_incoming_to_yolo.py \
-  --source-root data/incoming/android_plugin \
-  --dataset-root data/wheel_dataset \
+./.venv/bin/python scripts/accept_unreal_export.py \
+  --source-root ~/Downloads/0002 \
+  --source-name unreal_0002_trial \
   --overwrite
 ```
 
-The current converter consumes a slightly different annotation shape
-(the legacy `class_name` + `keypoints` array layout in
-`docs/ANNOTATION_JSON_FORMAT.md`). Aligning the converter to the
-plugin shape above is a small follow-up — once the first batch
-arrives we will either:
-
-1. adapt the converter to accept the plugin's native format, OR
-2. add a tiny normaliser
-   (`src/normalize_plugin_to_incoming.py`) that rewrites plugin JSON
-   to the legacy format before conversion.
-
-The choice depends on whether the plugin shape is final or expected
-to evolve.
+For already-normalized plugin JSON under `data/incoming/<source_name>/`,
+use `src/convert_keypoint_incoming_to_yolo_pose.py` directly. For raw
+Unreal exports (`Images/keyPoint/Ground`), always start with
+`scripts/accept_unreal_export.py`; it runs inspection, import,
+validation, conversion, preview generation, and optional smoke training
+from one command.
 
 ## Quality rules (carried over)
 

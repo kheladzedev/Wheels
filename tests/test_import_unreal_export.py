@@ -89,6 +89,29 @@ def test_build_bbox_returns_none_when_all_points_equal_and_no_margin():
     assert bbox is None
 
 
+def test_build_bbox_from_optional_top_points_uses_all_five_points():
+    points = {
+        "Right": (100.0, 420.0),
+        "Left": (300.0, 420.0),
+        "Center": (200.0, 330.0),
+        "LeftTop": (310.0, 120.0),
+        "RightTop": (90.0, 120.0),
+    }
+    bbox = imp.build_bbox_from_optional_top_points(points, image_w=640, image_h=480)
+    assert bbox == pytest.approx((90.0, 120.0, 310.0, 420.0))
+
+
+def test_build_bbox_from_optional_top_points_rejects_oob_helper():
+    points = {
+        "Right": (100.0, 420.0),
+        "Left": (300.0, 420.0),
+        "Center": (200.0, 330.0),
+        "LeftTop": (700.0, 120.0),
+        "RightTop": (90.0, 120.0),
+    }
+    assert imp.build_bbox_from_optional_top_points(points, 640, 480) is None
+
+
 # ---------- _try_build_wheel — drop rules ------------------------------------
 
 
@@ -98,6 +121,17 @@ def _kp_text(right, left, center) -> str:
         f'{{name:"Right",XY:{right[0]},{right[1]}\n}},\n'
         f'{{name:"Left",XY:{left[0]},{left[1]}\n}},\n'
         f'{{name:"Center",XY:{center[0]},{center[1]}\n}}\n}}'
+    )
+
+
+def _kp_text_with_top(right, left, center, left_top, right_top) -> str:
+    return (
+        "{\n"
+        f'{{name:"Right",XY:{right[0]},{right[1]}\n}},\n'
+        f'{{name:"Left",XY:{left[0]},{left[1]}\n}},\n'
+        f'{{name:"Center",XY:{center[0]},{center[1]}\n}},\n'
+        f'{{name:"LeftTop",XY:{left_top[0]},{left_top[1]}\n}},\n'
+        f'{{name:"RightTop",XY:{right_top[0]},{right_top[1]}\n}}\n}}'
     )
 
 
@@ -116,6 +150,28 @@ def test_try_build_wheel_valid():
     assert wheel["points"]["c_disc_bottom"] == [200.0, 330.0]
     assert len(wheel["bbox_xyxy"]) == 4
     # Drop counters unchanged.
+    assert all(v == 0 for v in summary.drop_counts.values())
+
+
+def test_try_build_wheel_prefers_optional_top_point_bbox():
+    summary = imp.ImportSummary()
+    wheel = imp._try_build_wheel(
+        _kp_text_with_top(
+            (100.0, 420.0),
+            (300.0, 420.0),
+            (200.0, 330.0),
+            (310.0, 120.0),
+            (90.0, 120.0),
+        ),
+        640,
+        480,
+        80,
+        summary,
+    )
+    assert wheel is not None
+    assert wheel["bbox_xyxy"] == pytest.approx([90.0, 120.0, 310.0, 420.0])
+    assert summary.bbox_from_top_points == 1
+    assert summary.bbox_from_floorray == 0
     assert all(v == 0 for v in summary.drop_counts.values())
 
 
@@ -281,6 +337,7 @@ def test_import_end_to_end(tmp_path: Path):
     assert report["images_found"] == 4
     assert report["images_imported"] == 4
     assert report["valid_wheels"] == 1
+    assert report["bbox_strategy_counts"] == {"top_points": 0, "floorray": 1}
     assert report["drop_counts"][imp.DROP_ALL_ZERO] == 1
     assert report["drop_counts"][imp.DROP_OUT_OF_BOUNDS] == 1
     assert report["drop_counts"][imp.DROP_MISSING_POINTS] == 1
@@ -289,7 +346,14 @@ def test_import_end_to_end(tmp_path: Path):
 
     src_info = json.loads((out_root / "metadata/source_info.json").read_text())
     assert src_info["source_format"] == "raw_unreal_plugin_export"
-    assert src_info["mapping"] == {"Right": "a", "Left": "b", "Center": "c_disc_bottom"}
+    assert src_info["source_name"] == "unreal_export"
+    assert src_info["mapping"] == {
+        "Right": "a",
+        "Left": "b",
+        "Center": "c_disc_bottom",
+        "LeftTop": "bbox helper when present",
+        "RightTop": "bbox helper when present",
+    }
     assert src_info["mapping_basis"] == "plugin_author_confirmation"
     assert src_info["not_yet_training_approved"] is True
     assert src_info["requires_human_preview"] is True

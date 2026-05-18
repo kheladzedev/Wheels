@@ -7,16 +7,23 @@ source of truth for this batch::
     Left   -> points.b
     Center -> points.c_disc_bottom
 
+Newer trial exports may also include ``LeftTop`` and ``RightTop``.
+Those are optional bbox helper points; when both are present, non-zero,
+and inside the image, the importer builds a tighter full-wheel bbox
+from all five points instead of using the older A/B/C-only heuristic.
+
 Drop policy::
 
-    - object dropped if all three points are (0, 0)
+    - object dropped if all three required points are (0, 0)
+    - object dropped if any required point is (0, 0)
     - object dropped if any required point is missing
     - object dropped if any required point is outside the image bounds
     - object dropped if the keyPoint .txt cannot be parsed
 
-bbox_xyxy is computed around the three accepted points with a configurable
-margin (default ``80 px``) and clipped to image bounds. If clipping
-collapses the bbox to zero area, the object is dropped.
+``bbox_xyxy`` is computed from ``Right/Left/Center/LeftTop/RightTop`` when
+the optional top helper points are present and valid. Otherwise it falls
+back to the older A/B/C floor-ray heuristic. If clipping collapses the
+bbox to zero area, the object is dropped.
 
 Outputs the on-disk contract in ``docs/KEYPOINT_DATASET_FORMAT.md``::
 
@@ -33,8 +40,9 @@ JSON, since the annotation contract is strict.
 Usage::
 
     python scripts/import_unreal_export.py \\
-        --source-root ~/Downloads/0001 \\
+        --source-root ~/Downloads/0002 \\
         --out-root data/incoming/android_plugin_real \\
+        --source-name unreal_0002_trial \\
         --overwrite
 """
 
@@ -61,6 +69,7 @@ import inspect_unreal_export as ix  # noqa: E402
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 DEFAULT_MARGIN_PX = 80
+OPTIONAL_BBOX_POINT_NAMES = ("LeftTop", "RightTop")
 
 DROP_ALL_ZERO = "all_zero"
 DROP_OUT_OF_BOUNDS = "out_of_bounds"
@@ -92,6 +101,8 @@ class ImportSummary:
     images_imported: int = 0
     keypoint_object_files_found: int = 0
     valid_wheels: int = 0
+    bbox_from_top_points: int = 0
+    bbox_from_floorray: int = 0
     drop_counts: dict[str, int] = field(
         default_factory=lambda: {k: 0 for k in DROP_REASONS}
     )
@@ -109,6 +120,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--source-root", required=True, type=Path)
     p.add_argument("--out-root", required=True, type=Path)
     p.add_argument("--margin", type=int, default=DEFAULT_MARGIN_PX)
+    p.add_argument(
+        "--source-name",
+        default=None,
+        help=(
+            "Source slug recorded in metadata/source_info.json. Defaults to "
+            "'unreal_<source-root-name>'."
+        ),
+    )
     p.add_argument("--overwrite", action="store_true")
     return p.parse_args(argv)
 
@@ -199,6 +218,41 @@ def build_bbox_from_floorray_points(
     return x1, y1, x2, y2
 
 
+def build_bbox_from_optional_top_points(
+    points: dict[str, tuple[float, float]],
+    image_w: int,
+    image_h: int,
+) -> Optional[tuple[float, float, float, float]]:
+    """Build a full-wheel bbox from Right/Left/Center/LeftTop/RightTop.
+
+    The 0002 trial export adds two upper wheel points but still does
+    not emit an explicit ``BBox: x1,y1,x2,y2``. If all five points are
+    usable and inside the final image, their min/max rectangle is a
+    better training bbox than the older floor-ray-only heuristic.
+    """
+    required = ix.POINT_NAMES + OPTIONAL_BBOX_POINT_NAMES
+    if any(name not in points for name in required):
+        return None
+    usable: list[tuple[float, float]] = []
+    for name in required:
+        x, y = points[name]
+        if abs(x) <= ix.ZERO_EPS and abs(y) <= ix.ZERO_EPS:
+            return None
+        if not (0 <= x <= image_w - 1 and 0 <= y <= image_h - 1):
+            return None
+        usable.append((x, y))
+
+    xs = [p[0] for p in usable]
+    ys = [p[1] for p in usable]
+    x1 = max(0.0, min(xs))
+    y1 = max(0.0, min(ys))
+    x2 = min(float(image_w - 1), max(xs))
+    y2 = min(float(image_h - 1), max(ys))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return x1, y1, x2, y2
+
+
 def _floorray_geometry_ok(
     bbox: tuple[float, float, float, float],
     a: tuple[float, float],
@@ -277,20 +331,28 @@ def _try_build_wheel(
     right = pts["Right"]
     left = pts["Left"]
     center = pts["Center"]
-    bbox = build_bbox_from_floorray_points(
-        right,
-        left,
-        center,
-        image_w,
-        image_h,
-        min_size=margin,
-    )
+    bbox = build_bbox_from_optional_top_points(pts, image_w, image_h)
+    bbox_strategy = "top_points"
+    if bbox is None:
+        bbox_strategy = "floorray"
+        bbox = build_bbox_from_floorray_points(
+            right,
+            left,
+            center,
+            image_w,
+            image_h,
+            min_size=margin,
+        )
     if bbox is None:
         _drop(summary, DROP_INVALID_BBOX)
         return None
     if not _floorray_geometry_ok(bbox, right, left, center):
         _drop(summary, DROP_BAD_GEOMETRY)
         return None
+    if bbox_strategy == "top_points":
+        summary.bbox_from_top_points += 1
+    else:
+        summary.bbox_from_floorray += 1
 
     return {
         "bbox_xyxy": [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])],
@@ -408,8 +470,9 @@ def _write_metadata(
     args: argparse.Namespace,
     summary: ImportSummary,
 ) -> None:
+    source_name = args.source_name or f"unreal_{src.name}"
     source_info = {
-        "source_name": "unreal_0001_trial",
+        "source_name": source_name,
         "source_format": "raw_unreal_plugin_export",
         "source_root": str(src),
         "captured_at": None,
@@ -418,10 +481,14 @@ def _write_metadata(
             "Right": "a",
             "Left": "b",
             "Center": "c_disc_bottom",
+            "LeftTop": "bbox helper when present",
+            "RightTop": "bbox helper when present",
         },
         "mapping_basis": "plugin_author_confirmation",
         "bbox_strategy": (
-            "estimated full-wheel bbox from A/B floor anchors and C disc-bottom, "
+            "if LeftTop/RightTop are present and in-bounds, bbox is min/max "
+            "over Right/Left/Center/LeftTop/RightTop; otherwise estimated "
+            "full-wheel bbox from A/B floor anchors and C disc-bottom, "
             f"minimum side {args.margin}px, clipped to image bounds"
         ),
         "drop_policy": (
@@ -446,6 +513,10 @@ def _write_metadata(
         "images_imported": summary.images_imported,
         "keypoint_object_files_found": summary.keypoint_object_files_found,
         "valid_wheels": summary.valid_wheels,
+        "bbox_strategy_counts": {
+            "top_points": summary.bbox_from_top_points,
+            "floorray": summary.bbox_from_floorray,
+        },
         "drop_counts": summary.drop_counts,
         "ground_meta_parsed": summary.ground_meta_parsed,
         "ground_meta": summary.ground_meta,
@@ -460,6 +531,9 @@ def _print_summary(summary: ImportSummary) -> None:
     print(f"Images imported:               {summary.images_imported}")
     print(f"keyPoint files found:          {summary.keypoint_object_files_found}")
     print(f"Valid wheels written:          {summary.valid_wheels}")
+    print("BBox strategies:")
+    print(f"  top_points:                  {summary.bbox_from_top_points}")
+    print(f"  floorray:                    {summary.bbox_from_floorray}")
     print("Drops:")
     for k in DROP_REASONS:
         print(f"  {k}: {summary.drop_counts.get(k, 0)}")

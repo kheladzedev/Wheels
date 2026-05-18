@@ -39,6 +39,21 @@ def test_parse_keypoint_unreal_format():
     assert out["Center"] == pytest.approx((1023.827595, 1023.984562))
 
 
+def test_parse_keypoint_unreal_format_with_optional_top_points():
+    text = (
+        "{\n"
+        '{name:"Right",XY:100.0,420.0\n},\n'
+        '{name:"Left",XY:300.0,420.0\n},\n'
+        '{name:"Center",XY:200.0,330.0\n},\n'
+        '{name:"LeftTop",XY:310.0,120.0\n},\n'
+        '{name:"RightTop",XY:90.0,120.0\n}\n}'
+    )
+    out = ix.parse_keypoint_text(text)
+    assert set(out) == {"Right", "Left", "Center", "LeftTop", "RightTop"}
+    assert out["LeftTop"] == pytest.approx((310.0, 120.0))
+    assert out["RightTop"] == pytest.approx((90.0, 120.0))
+
+
 def test_parse_keypoint_simple_format():
     text = "Right: 1.0,2.0\nLeft: 3.0,4.0\nCenter: 5.0,6.0\n"
     out = ix.parse_keypoint_text(text)
@@ -247,8 +262,8 @@ def test_inspect_end_to_end(tmp_path: Path):
 
     md = (out / "report.md").read_text()
     assert "RAW EXPORT" in md or "Raw Unreal export inspection" in md
-    assert "Open questions" in md
-    assert "BLOCKED" in md
+    assert "Contract notes" in md
+    assert "NOT_APPROVED_FOR_TRAINING" in md
 
     # At least one preview was rendered (frames have signal).
     preview_files = list((out / "previews").glob("*.jpg"))

@@ -324,6 +324,36 @@ python src/train_yolo.py \
 
 ## First real plugin batch acceptance
 
+For raw Unreal/plugin exports shaped like the `0002` trial
+(`Images/`, `keyPoint/`, optional `Ground/`), use the raw-export
+acceptance runner first. It inspects the raw files, imports them into
+the confirmed plugin JSON contract, validates, converts to YOLO-pose,
+renders previews, and writes a single report.
+
+```bash
+python scripts/accept_unreal_export.py \
+  --source-root ~/Downloads/0002 \
+  --source-name unreal_0002_trial \
+  --overwrite
+
+# Optional one-epoch smoke train after the gates pass:
+python scripts/accept_unreal_export.py \
+  --source-root ~/Downloads/0002 \
+  --source-name unreal_0002_trial \
+  --overwrite \
+  --smoke-train --device mps
+```
+
+Artifacts land under
+`outputs/unreal_export_acceptance/<source-name>/`:
+
+- `acceptance_report.md` / `.json` — counts, drop reasons, paths, status.
+- `inspection/` — raw keyPoint status report and raw overlays.
+- `incoming/` — imported `images/annotations/metadata` contract.
+- `pose_dataset/` — converted YOLO-pose dataset.
+- `previews/incoming/` and `previews/pose/train/` — visual review gates.
+- `logs/` — per-step stdout/stderr logs.
+
 When the **first** real Android-plugin batch lands, run the dedicated
 acceptance workflow before anything else. It validates the incoming
 format, renders previews, runs the YOLO-pose converter with the quality
