@@ -14,6 +14,7 @@ dist/
 
 # Virtualenv
 .venv/
+.tflite-venv/
 venv/
 env/
 
