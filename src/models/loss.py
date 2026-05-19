@@ -3,9 +3,9 @@
 Components (per docs/MODEL_ARCHITECTURE_PROPOSAL.md §2.4):
 
   L_total = lambda_cls  * L_focal(cls)
-          + lambda_bbox * L_giou(bbox)   # positive cells only
-          + lambda_kpt  * L_oks(kpt)     # positive cells only
-          + lambda_vis  * L_bce(vis)     # positive cells only
+          + lambda_bbox * L_giou(bbox)        # positive cells only
+          + lambda_kpt  * L_smooth_l1(kpt)    # positive cells only
+          + lambda_vis  * L_bce(vis)          # positive cells only
 
 All loss components operate on the flat (B, H*W, ...) layout produced
 by the matcher. Positives are gated by `pos_mask`. If an image has no
@@ -106,6 +106,24 @@ def oks_keypoint_loss(
     return ((1.0 - oks) * gt_vis).sum()
 
 
+def keypoint_smooth_l1_loss(
+    pred_off: torch.Tensor,  # (N_pos, K, 2) (dx, dy) in stride units
+    gt_off: torch.Tensor,  # (N_pos, K, 2)
+    gt_vis: torch.Tensor,  # (N_pos, K) in {0, 1}
+    beta: float = 0.5,
+) -> torch.Tensor:
+    """Visibility-masked SmoothL1 keypoint loss in stride units.
+
+    The initial MobileNetV2 baseline used OKS directly for training, but
+    A/B floor-ray points can start more than a stride away from the cell
+    center. With a small OKS sigma those large offsets saturate and provide
+    almost no useful gradient. SmoothL1 keeps a stable gradient for those
+    far floor-ray points while still being robust near convergence.
+    """
+    per_coord = F.smooth_l1_loss(pred_off, gt_off, beta=beta, reduction="none")
+    return (per_coord * gt_vis.unsqueeze(-1)).sum()
+
+
 class PoseLoss(nn.Module):
     """Combined detection + pose loss.
 
@@ -125,6 +143,7 @@ class PoseLoss(nn.Module):
         focal_alpha: float = 0.25,
         focal_gamma: float = 2.0,
         oks_sigma: float = 0.05,
+        kpt_smooth_l1_beta: float = 0.5,
     ) -> None:
         super().__init__()
         self.lambda_cls = lambda_cls
@@ -134,6 +153,7 @@ class PoseLoss(nn.Module):
         self.focal_alpha = focal_alpha
         self.focal_gamma = focal_gamma
         self.oks_sigma = oks_sigma
+        self.kpt_smooth_l1_beta = kpt_smooth_l1_beta
 
     def forward(
         self,
@@ -171,17 +191,15 @@ class PoseLoss(nn.Module):
             kpt_pred_pos = kpt_pred[pos_mask]
             kpt_gt_pos = match.kpt_target[pos_mask]
             vis_gt_pos = match.vis_target[pos_mask]
-            # Bbox diagonal in stride units for OKS scaling.
-            l, t, r, b = bbox_gt_pos.unbind(-1)
-            w = l + r
-            h = t + b
-            diag = (w * w + h * h).clamp(min=1e-6).sqrt()
             visible_count = vis_gt_pos.sum().clamp(min=1.0)
             l_kpt = (
-                oks_keypoint_loss(
-                    kpt_pred_pos, kpt_gt_pos, vis_gt_pos, diag, sigma=self.oks_sigma
+                keypoint_smooth_l1_loss(
+                    kpt_pred_pos,
+                    kpt_gt_pos,
+                    vis_gt_pos,
+                    beta=self.kpt_smooth_l1_beta,
                 )
-                / visible_count
+                / (visible_count * 2.0)
             )
 
             l_vis = F.binary_cross_entropy_with_logits(

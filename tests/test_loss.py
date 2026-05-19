@@ -7,7 +7,13 @@ import math
 import pytest
 
 torch = pytest.importorskip("torch")
-from src.models.loss import PoseLoss, focal_loss, giou_loss, oks_keypoint_loss
+from src.models.loss import (
+    PoseLoss,
+    focal_loss,
+    giou_loss,
+    keypoint_smooth_l1_loss,
+    oks_keypoint_loss,
+)
 from src.models.matcher import assign_targets_batched
 from src.models.mobilenetv2_skipless_pose import (
     FEATURE_STRIDE,
@@ -86,6 +92,21 @@ def test_oks_keypoint_loss_penalises_small_wheels_more() -> None:
     small_loss = float(oks_keypoint_loss(pred[:1], gt[:1], vis[:1], small_diag))
     big_loss = float(oks_keypoint_loss(pred[:1], gt[:1], vis[:1], big_diag))
     assert small_loss > big_loss
+
+
+def test_smooth_l1_keypoint_loss_has_gradient_for_far_floor_ray_points() -> None:
+    """A/B floor-ray offsets start far from zero and must still get gradient."""
+    pred = torch.zeros(1, N_KEYPOINTS, 2, requires_grad=True)
+    gt = torch.tensor([[[-1.25, 1.25], [1.25, 1.25], [0.0, 0.75]]])
+    vis = torch.ones(1, N_KEYPOINTS)
+
+    loss = keypoint_smooth_l1_loss(pred, gt, vis, beta=0.5)
+    loss.backward()
+
+    assert float(loss.detach()) > 0
+    assert pred.grad is not None
+    assert float(pred.grad[0, 0].abs().sum()) > 0.1
+    assert float(pred.grad[0, 1].abs().sum()) > 0.1
 
 
 def test_combined_pose_loss_runs_with_random_input() -> None:
