@@ -175,6 +175,37 @@ def test_try_build_wheel_prefers_optional_top_point_bbox():
     assert all(v == 0 for v in summary.drop_counts.values())
 
 
+def test_try_build_wheel_can_diagnose_swapped_right_left():
+    text = _kp_text_with_top(
+        (300.0, 420.0),
+        (100.0, 420.0),
+        (200.0, 330.0),
+        (90.0, 120.0),
+        (310.0, 120.0),
+    )
+
+    normal_summary = imp.ImportSummary()
+    normal = imp._try_build_wheel(text, 640, 480, 80, normal_summary)
+    assert normal is None
+    assert normal_summary.drop_counts[imp.DROP_BAD_GEOMETRY] == 1
+
+    swapped_summary = imp.ImportSummary()
+    swapped = imp._try_build_wheel(
+        text,
+        640,
+        480,
+        80,
+        swapped_summary,
+        right_left_mapping=imp.RIGHT_LEFT_MAPPING_SCREEN_SIDES,
+    )
+    assert swapped is not None
+    assert swapped["points"]["a"] == [100.0, 420.0]
+    assert swapped["points"]["b"] == [300.0, 420.0]
+    assert swapped["points"]["c_disc_bottom"] == [200.0, 330.0]
+    assert swapped_summary.bbox_from_top_points == 1
+    assert all(v == 0 for v in swapped_summary.drop_counts.values())
+
+
 def test_try_build_wheel_drops_all_zero():
     summary = imp.ImportSummary()
     wheel = imp._try_build_wheel(
@@ -265,6 +296,10 @@ def _write_kp(path: Path, right, left, center):
     path.write_text(_kp_text(right, left, center))
 
 
+def _write_kp_with_top(path: Path, right, left, center, left_top, right_top):
+    path.write_text(_kp_text_with_top(right, left, center, left_top, right_top))
+
+
 def _build_fake_export(root: Path):
     (root / "Images").mkdir(parents=True)
     (root / "Ground").mkdir(parents=True)
@@ -291,6 +326,22 @@ def _build_fake_export(root: Path):
     # frame 3: image with no keypoint folder at all — must still be imported
     # with wheels: [].
     cv2.imwrite(str(root / "Images/3.jpg"), img)
+
+
+def _build_fake_swapped_export(root: Path):
+    (root / "Images").mkdir(parents=True)
+    (root / "Ground").mkdir(parents=True)
+    (root / "keyPoint" / "0").mkdir(parents=True)
+    img = np.ones((480, 640, 3), dtype=np.uint8) * 200
+    cv2.imwrite(str(root / "Images/0.jpg"), img)
+    _write_kp_with_top(
+        root / "keyPoint/0/0.txt",
+        (300.0, 420.0),
+        (100.0, 420.0),
+        (200.0, 330.0),
+        (90.0, 120.0),
+        (310.0, 120.0),
+    )
 
 
 def test_import_end_to_end(tmp_path: Path):
@@ -354,9 +405,50 @@ def test_import_end_to_end(tmp_path: Path):
         "LeftTop": "bbox helper when present",
         "RightTop": "bbox helper when present",
     }
-    assert src_info["mapping_basis"] == "plugin_author_confirmation"
+    assert src_info["mapping_basis"] == "auto_screen_x_majority"
+    assert src_info["right_left_mapping_requested"] == "auto"
+    assert src_info["right_left_mapping_resolved"] == "confirmed"
     assert src_info["not_yet_training_approved"] is True
     assert src_info["requires_human_preview"] is True
+
+
+def test_import_end_to_end_with_diagnostic_right_left_swap(tmp_path: Path):
+    src = tmp_path / "export"
+    src.mkdir()
+    _build_fake_swapped_export(src)
+
+    out_root = tmp_path / "out"
+    args = imp.parse_args(
+        [
+            "--source-root",
+            str(src),
+            "--out-root",
+            str(out_root),
+            "--overwrite",
+            "--swap-right-left",
+        ]
+    )
+    rc = imp.run(args)
+    assert rc == 0
+
+    a0 = json.loads((out_root / "annotations/0.json").read_text())
+    assert len(a0["wheels"]) == 1
+    assert a0["wheels"][0]["points"]["a"] == [100.0, 420.0]
+    assert a0["wheels"][0]["points"]["b"] == [300.0, 420.0]
+
+    report = json.loads((out_root / "metadata/import_report.json").read_text())
+    assert report["valid_wheels"] == 1
+    assert report["diagnostic_swap_right_left"] is True
+    assert report["mapping_basis"] == "diagnostic_swap_right_left"
+    assert report["mapping_mode"] == "screen-sides"
+    assert report["right_left_mapping_requested"] == "screen-sides"
+    assert report["right_left_mapping_resolved"] == "screen-sides"
+
+    src_info = json.loads((out_root / "metadata/source_info.json").read_text())
+    assert src_info["diagnostic_swap_right_left"] is True
+    assert src_info["mapping_basis"] == "diagnostic_swap_right_left"
+    assert src_info["mapping"]["Left"] == "a"
+    assert src_info["mapping"]["Right"] == "b"
 
 
 def test_import_refuses_to_overwrite_without_flag(tmp_path: Path):

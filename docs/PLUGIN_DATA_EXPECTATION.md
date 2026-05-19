@@ -84,13 +84,21 @@ it keeps this raw layout:
 
 Each keyPoint object should contain:
 
-- `Right` — maps to `points.a`.
-- `Left` — maps to `points.b`.
+- `Left` — preferred raw name for `points.a` (left floor-ray point).
+- `Right` — preferred raw name for `points.b` (right floor-ray point).
 - `Center` — maps to `points.c_disc_bottom`.
 - `LeftTop` and `RightTop` — optional bbox helper points. When both are
   present, non-zero, and inside the image, the importer builds the
   full-wheel bbox from all five points. If the Unreal collector can add
   an explicit `BBox: x1,y1,x2,y2`, that is still preferred.
+
+Observed historical note: the `0002` trial export used inverted raw names
+(`Right` was the left screen-space point and `Left` was the right
+screen-space point), while `0003` uses literal screen-side names. The raw
+adapter now defaults to batch-level auto mapping from x-order and records
+the resolved mapping in `metadata/source_info.json` and the acceptance
+report. For new exports, prefer the literal screen-side convention:
+`Left -> points.a`, `Right -> points.b`.
 
 Coordinates must be pixels in the final exported image coordinate system
 (`0..2048` for the current square renders). Objects with `0,0`, missing

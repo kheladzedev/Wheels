@@ -53,6 +53,23 @@ def _build_fake_0002_export(root: Path) -> None:
     )
 
 
+def _build_fake_swapped_export(root: Path) -> None:
+    (root / "Images").mkdir(parents=True)
+    (root / "keyPoint" / "0").mkdir(parents=True)
+    img = np.ones((480, 640, 3), dtype=np.uint8) * 200
+    assert cv2.imwrite(str(root / "Images" / "0.jpg"), img)
+    (root / "keyPoint" / "0" / "0.txt").write_text(
+        _kp_text(
+            (300.0, 420.0),
+            (100.0, 420.0),
+            (200.0, 330.0),
+            (90.0, 120.0),
+            (310.0, 120.0),
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_accept_unreal_export_runner_end_to_end(tmp_path: Path) -> None:
     source = tmp_path / "0002"
     _build_fake_0002_export(source)
@@ -86,6 +103,75 @@ def test_accept_unreal_export_runner_end_to_end(tmp_path: Path) -> None:
     assert report["import"]["drop_counts"]["all_zero"] == 1
     assert report["conversion"]["wheels"] == 1
     assert (out_root / "unreal_0002_trial" / "acceptance_report.md").is_file()
+
+
+def test_accept_unreal_export_propagates_diagnostic_swap(tmp_path: Path) -> None:
+    source = tmp_path / "0003"
+    _build_fake_swapped_export(source)
+    out_root = tmp_path / "acceptance"
+
+    rc = accept.main(
+        [
+            "--source-root",
+            str(source),
+            "--source-name",
+            "0003_swapped",
+            "--out-root",
+            str(out_root),
+            "--preview-count",
+            "1",
+            "--overwrite",
+            "--swap-right-left",
+        ]
+    )
+
+    assert rc == 0
+    report_path = out_root / "unreal_0003_swapped" / "acceptance_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["technical_status"] == "PASS"
+    assert report["mapping_mode"] == "screen-sides"
+    assert report["mapping_basis"] == "diagnostic_swap_right_left"
+    assert report["right_left_mapping_requested"] == "screen-sides"
+    assert report["right_left_mapping_resolved"] == "screen-sides"
+    assert report["diagnostic_swap_right_left"] is True
+    assert report["import"]["diagnostic_swap_right_left"] is True
+    assert report["import"]["valid_wheels"] == 1
+
+    md = (out_root / "unreal_0003_swapped" / "acceptance_report.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Mapping mode: **screen-sides**" in md
+    assert "Mapping basis: **diagnostic_swap_right_left**" in md
+    assert "Diagnostic Right/Left swap: **True**" in md
+
+
+def test_accept_unreal_export_auto_maps_screen_side_export(tmp_path: Path) -> None:
+    source = tmp_path / "0003"
+    _build_fake_swapped_export(source)
+    out_root = tmp_path / "acceptance"
+
+    rc = accept.main(
+        [
+            "--source-root",
+            str(source),
+            "--source-name",
+            "0003_auto",
+            "--out-root",
+            str(out_root),
+            "--preview-count",
+            "1",
+            "--overwrite",
+        ]
+    )
+
+    assert rc == 0
+    report_path = out_root / "unreal_0003_auto" / "acceptance_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["mapping_mode"] == "screen-sides"
+    assert report["mapping_basis"] == "auto_screen_x_majority"
+    assert report["right_left_mapping_requested"] == "auto"
+    assert report["right_left_mapping_resolved"] == "screen-sides"
+    assert report["import"]["valid_wheels"] == 1
 
 
 def test_accept_unreal_export_can_fail_on_data_quality_gate(tmp_path: Path) -> None:

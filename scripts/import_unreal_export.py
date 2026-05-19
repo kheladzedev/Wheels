@@ -1,11 +1,16 @@
 """Import a raw Unreal/plugin export into the VSBL incoming-dataset format.
 
-Mapping (per plugin-author confirmation 2026-05-15) is treated as the
-source of truth for this batch::
+By default the importer auto-detects the raw Right/Left naming convention
+from screen-space x ordering. The confirmed AR target remains::
 
-    Right  -> points.a
-    Left   -> points.b
+    points.a -> left floor-ray point
+    points.b -> right floor-ray point
     Center -> points.c_disc_bottom
+
+Legacy trial export ``0002`` used inverted raw names
+(``Right`` on the left side of the screen, ``Left`` on the right). Export
+``0003`` uses literal screen-side names. Both are accepted, but the resolved
+mapping is written to metadata and acceptance reports.
 
 Newer trial exports may also include ``LeftTop`` and ``RightTop``.
 Those are optional bbox helper points; when both are present, non-zero,
@@ -71,6 +76,10 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 DEFAULT_MARGIN_PX = 80
 OPTIONAL_BBOX_POINT_NAMES = ("LeftTop", "RightTop")
 
+RIGHT_LEFT_MAPPING_AUTO = "auto"
+RIGHT_LEFT_MAPPING_CONFIRMED = "confirmed"
+RIGHT_LEFT_MAPPING_SCREEN_SIDES = "screen-sides"
+
 DROP_ALL_ZERO = "all_zero"
 DROP_OUT_OF_BOUNDS = "out_of_bounds"
 DROP_MISSING_POINTS = "missing_points"
@@ -129,6 +138,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     p.add_argument("--overwrite", action="store_true")
+    p.add_argument(
+        "--right-left-mapping",
+        choices=(
+            RIGHT_LEFT_MAPPING_AUTO,
+            RIGHT_LEFT_MAPPING_CONFIRMED,
+            RIGHT_LEFT_MAPPING_SCREEN_SIDES,
+        ),
+        default=RIGHT_LEFT_MAPPING_AUTO,
+        help=(
+            "How to map raw Right/Left fields to points.a/points.b. "
+            "'auto' chooses from batch x-order; 'confirmed' uses the legacy "
+            "0002 mapping Right->a, Left->b; 'screen-sides' uses Left->a, "
+            "Right->b."
+        ),
+    )
+    p.add_argument(
+        "--swap-right-left",
+        action="store_true",
+        help=(
+            "Alias for --right-left-mapping screen-sides. Kept for the 0003 "
+            "diagnostic workflow."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -286,12 +318,93 @@ def _drop(summary: ImportSummary, reason: str) -> None:
     summary.drop_counts[reason] = summary.drop_counts.get(reason, 0) + 1
 
 
+def _required_points_usable(
+    pts: dict[str, tuple[float, float]],
+    image_w: int,
+    image_h: int,
+) -> bool:
+    if any(n not in pts for n in ix.POINT_NAMES):
+        return False
+    for name in ix.POINT_NAMES:
+        x, y = pts[name]
+        if abs(x) <= ix.ZERO_EPS and abs(y) <= ix.ZERO_EPS:
+            return False
+        if not (0 <= x <= image_w - 1 and 0 <= y <= image_h - 1):
+            return False
+    return True
+
+
+def _resolve_right_left_mapping(
+    src: Path,
+    images: list[Path],
+    kp_root: Path,
+    args: argparse.Namespace,
+) -> None:
+    requested = (
+        RIGHT_LEFT_MAPPING_SCREEN_SIDES
+        if args.swap_right_left
+        else args.right_left_mapping
+    )
+    args.right_left_mapping_requested = requested
+    args.right_left_mapping_counts = {
+        "usable_objects": 0,
+        "left_x_lt_right_x": 0,
+        "right_x_lt_left_x": 0,
+    }
+
+    if requested == RIGHT_LEFT_MAPPING_CONFIRMED:
+        args.right_left_mapping_resolved = RIGHT_LEFT_MAPPING_CONFIRMED
+        args.right_left_mapping_basis = "plugin_author_confirmation"
+        return
+    if requested == RIGHT_LEFT_MAPPING_SCREEN_SIDES:
+        args.right_left_mapping_resolved = RIGHT_LEFT_MAPPING_SCREEN_SIDES
+        args.right_left_mapping_basis = (
+            "diagnostic_swap_right_left"
+            if args.swap_right_left
+            else "manual_screen_side_mapping"
+        )
+        return
+
+    for img_path in images:
+        size = _read_image_size(img_path)
+        if size is None:
+            continue
+        image_w, image_h = size
+        kp_dir = kp_root / img_path.stem
+        if not kp_dir.is_dir():
+            continue
+        for kp_file in sorted(kp_dir.iterdir(), key=lambda p: p.name):
+            if kp_file.suffix.lower() != ".txt" or not kp_file.is_file():
+                continue
+            try:
+                pts = ix.parse_keypoint_text(
+                    kp_file.read_text(encoding="utf-8", errors="replace")
+                )
+            except OSError:
+                continue
+            if not _required_points_usable(pts, image_w, image_h):
+                continue
+            args.right_left_mapping_counts["usable_objects"] += 1
+            if pts["Left"][0] < pts["Right"][0]:
+                args.right_left_mapping_counts["left_x_lt_right_x"] += 1
+            elif pts["Right"][0] < pts["Left"][0]:
+                args.right_left_mapping_counts["right_x_lt_left_x"] += 1
+
+    counts = args.right_left_mapping_counts
+    if counts["left_x_lt_right_x"] > counts["right_x_lt_left_x"]:
+        args.right_left_mapping_resolved = RIGHT_LEFT_MAPPING_SCREEN_SIDES
+    else:
+        args.right_left_mapping_resolved = RIGHT_LEFT_MAPPING_CONFIRMED
+    args.right_left_mapping_basis = "auto_screen_x_majority"
+
+
 def _try_build_wheel(
     text: str,
     image_w: int,
     image_h: int,
     margin: int,
     summary: ImportSummary,
+    right_left_mapping: str = RIGHT_LEFT_MAPPING_CONFIRMED,
 ) -> Optional[dict]:
     """Parse one keyPoint .txt body and emit the wheel dict if valid.
 
@@ -330,14 +443,20 @@ def _try_build_wheel(
 
     right = pts["Right"]
     left = pts["Left"]
+    if right_left_mapping == RIGHT_LEFT_MAPPING_SCREEN_SIDES:
+        a = left
+        b = right
+    else:
+        a = right
+        b = left
     center = pts["Center"]
     bbox = build_bbox_from_optional_top_points(pts, image_w, image_h)
     bbox_strategy = "top_points"
     if bbox is None:
         bbox_strategy = "floorray"
         bbox = build_bbox_from_floorray_points(
-            right,
-            left,
+            a,
+            b,
             center,
             image_w,
             image_h,
@@ -346,7 +465,7 @@ def _try_build_wheel(
     if bbox is None:
         _drop(summary, DROP_INVALID_BBOX)
         return None
-    if not _floorray_geometry_ok(bbox, right, left, center):
+    if not _floorray_geometry_ok(bbox, a, b, center):
         _drop(summary, DROP_BAD_GEOMETRY)
         return None
     if bbox_strategy == "top_points":
@@ -357,8 +476,8 @@ def _try_build_wheel(
     return {
         "bbox_xyxy": [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])],
         "points": {
-            "a": [float(right[0]), float(right[1])],
-            "b": [float(left[0]), float(left[1])],
+            "a": [float(a[0]), float(a[1])],
+            "b": [float(b[0]), float(b[1])],
             "c_disc_bottom": [float(center[0]), float(center[1])],
         },
     }
@@ -404,6 +523,7 @@ def run(args: argparse.Namespace) -> int:
     summary = ImportSummary()
     images = sorted(p for p in images_dir.iterdir() if p.suffix.lower() in IMAGE_EXTS)
     summary.images_found = len(images)
+    _resolve_right_left_mapping(src, images, kp_root, args)
 
     for img_path in images:
         frame_id = img_path.stem
@@ -425,7 +545,14 @@ def run(args: argparse.Namespace) -> int:
                 except OSError:
                     _drop(summary, DROP_PARSE_ERROR)
                     continue
-                wheel = _try_build_wheel(text, image_w, image_h, args.margin, summary)
+                wheel = _try_build_wheel(
+                    text,
+                    image_w,
+                    image_h,
+                    args.margin,
+                    summary,
+                    right_left_mapping=args.right_left_mapping_resolved,
+                )
                 if wheel is not None:
                     wheels.append(wheel)
                     summary.valid_wheels += 1
@@ -460,7 +587,7 @@ def run(args: argparse.Namespace) -> int:
         summary.images_imported += 1
 
     _write_metadata(out_root, src, args, summary)
-    _print_summary(summary)
+    _print_summary(summary, args)
     return 0
 
 
@@ -471,20 +598,41 @@ def _write_metadata(
     summary: ImportSummary,
 ) -> None:
     source_name = args.source_name or f"unreal_{src.name}"
+    resolved_mapping = getattr(
+        args, "right_left_mapping_resolved", RIGHT_LEFT_MAPPING_CONFIRMED
+    )
+    requested_mapping = getattr(
+        args, "right_left_mapping_requested", args.right_left_mapping
+    )
+    mapping_basis = getattr(
+        args, "right_left_mapping_basis", "plugin_author_confirmation"
+    )
+    mapping_counts = getattr(
+        args,
+        "right_left_mapping_counts",
+        {"usable_objects": 0, "left_x_lt_right_x": 0, "right_x_lt_left_x": 0},
+    )
+    mapping = {
+        "Right": "b" if resolved_mapping == RIGHT_LEFT_MAPPING_SCREEN_SIDES else "a",
+        "Left": "a" if resolved_mapping == RIGHT_LEFT_MAPPING_SCREEN_SIDES else "b",
+        "Center": "c_disc_bottom",
+        "LeftTop": "bbox helper when present",
+        "RightTop": "bbox helper when present",
+    }
     source_info = {
         "source_name": source_name,
         "source_format": "raw_unreal_plugin_export",
         "source_root": str(src),
         "captured_at": None,
         "imported_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        "mapping": {
-            "Right": "a",
-            "Left": "b",
-            "Center": "c_disc_bottom",
-            "LeftTop": "bbox helper when present",
-            "RightTop": "bbox helper when present",
-        },
-        "mapping_basis": "plugin_author_confirmation",
+        "mapping": mapping,
+        "mapping_basis": mapping_basis,
+        "mapping_mode": resolved_mapping,
+        "right_left_mapping_requested": requested_mapping,
+        "right_left_mapping_resolved": resolved_mapping,
+        "right_left_mapping_counts": mapping_counts,
+        "diagnostic_swap_right_left": resolved_mapping
+        == RIGHT_LEFT_MAPPING_SCREEN_SIDES,
         "bbox_strategy": (
             "if LeftTop/RightTop are present and in-bounds, bbox is min/max "
             "over Right/Left/Center/LeftTop/RightTop; otherwise estimated "
@@ -509,6 +657,14 @@ def _write_metadata(
         "out_root": str(out_root),
         "imported_at": source_info["imported_at"],
         "margin_px": args.margin,
+        "mapping": mapping,
+        "mapping_basis": mapping_basis,
+        "mapping_mode": resolved_mapping,
+        "right_left_mapping_requested": requested_mapping,
+        "right_left_mapping_resolved": resolved_mapping,
+        "right_left_mapping_counts": mapping_counts,
+        "diagnostic_swap_right_left": resolved_mapping
+        == RIGHT_LEFT_MAPPING_SCREEN_SIDES,
         "images_found": summary.images_found,
         "images_imported": summary.images_imported,
         "keypoint_object_files_found": summary.keypoint_object_files_found,
@@ -526,10 +682,13 @@ def _write_metadata(
     )
 
 
-def _print_summary(summary: ImportSummary) -> None:
+def _print_summary(summary: ImportSummary, args: argparse.Namespace) -> None:
     print(f"Images found:                  {summary.images_found}")
     print(f"Images imported:               {summary.images_imported}")
     print(f"keyPoint files found:          {summary.keypoint_object_files_found}")
+    print(f"Right/Left mapping requested:  {args.right_left_mapping_requested}")
+    print(f"Right/Left mapping resolved:   {args.right_left_mapping_resolved}")
+    print(f"Right/Left mapping basis:      {args.right_left_mapping_basis}")
     print(f"Valid wheels written:          {summary.valid_wheels}")
     print("BBox strategies:")
     print(f"  top_points:                  {summary.bbox_from_top_points}")

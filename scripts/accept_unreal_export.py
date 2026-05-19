@@ -140,6 +140,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Forwarded to train_yolo.py for --smoke-train, e.g. mps, cpu, 0.",
     )
+    p.add_argument(
+        "--right-left-mapping",
+        choices=("auto", "confirmed", "screen-sides"),
+        default="auto",
+        help=(
+            "Forwarded to import_unreal_export.py. 'auto' selects the raw "
+            "Right/Left mapping from batch x-order; 'confirmed' uses legacy "
+            "0002 Right->a, Left->b; 'screen-sides' uses Left->a, Right->b."
+        ),
+    )
+    p.add_argument(
+        "--swap-right-left",
+        action="store_true",
+        help=(
+            "Alias for --right-left-mapping screen-sides, kept for the 0003 "
+            "diagnostic workflow."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -358,6 +376,14 @@ def _summarise(
     conversion = _json_or_empty(
         paths["dataset"] / "metadata" / "conversion_report.json"
     )
+    mapping_mode = import_report.get("mapping_mode") or "unknown"
+    diagnostic_swap = bool(
+        import_report.get("diagnostic_swap_right_left", args.swap_right_left)
+    )
+    mapping_basis = import_report.get("mapping_basis")
+    mapping_requested = import_report.get("right_left_mapping_requested")
+    mapping_resolved = import_report.get("right_left_mapping_resolved")
+    mapping_counts = import_report.get("right_left_mapping_counts", {})
 
     all_required_steps_ok = all(s.ok for s in steps)
     valid_wheels = int(import_report.get("valid_wheels") or 0)
@@ -391,6 +417,12 @@ def _summarise(
         "review_status": review_status,
         "training_status": training_status,
         "smoke_train_requested": args.smoke_train,
+        "mapping_mode": mapping_mode,
+        "mapping_basis": mapping_basis,
+        "right_left_mapping_requested": mapping_requested,
+        "right_left_mapping_resolved": mapping_resolved,
+        "right_left_mapping_counts": mapping_counts,
+        "diagnostic_swap_right_left": diagnostic_swap,
         "data_quality_gate": data_quality_gate,
         "steps": [
             {
@@ -408,6 +440,12 @@ def _summarise(
             "image_resolutions": inspection.get("image_resolutions", {}),
         },
         "import": {
+            "mapping_mode": mapping_mode,
+            "mapping_basis": mapping_basis,
+            "right_left_mapping_requested": mapping_requested,
+            "right_left_mapping_resolved": mapping_resolved,
+            "right_left_mapping_counts": mapping_counts,
+            "diagnostic_swap_right_left": diagnostic_swap,
             "images_imported": import_report.get("images_imported"),
             "keypoint_object_files_found": import_report.get(
                 "keypoint_object_files_found"
@@ -450,6 +488,11 @@ def _write_md(path: Path, report: dict[str, Any]) -> None:
         f"- Technical status: **{report['technical_status']}**",
         f"- Review status: **{report['review_status']}**",
         f"- Training status: **{report['training_status']}**",
+        f"- Mapping mode: **{report.get('mapping_mode')}**",
+        f"- Mapping basis: **{report.get('mapping_basis')}**",
+        f"- Right/Left mapping requested: **{report.get('right_left_mapping_requested')}**",
+        f"- Right/Left mapping resolved: **{report.get('right_left_mapping_resolved')}**",
+        f"- Diagnostic Right/Left swap: **{report.get('diagnostic_swap_right_left')}**",
         "",
         "## Counts",
         "",
@@ -670,6 +713,16 @@ def run(args: argparse.Namespace) -> int:
             ],
         ),
     ]
+    if args.swap_right_left:
+        for name, command in commands:
+            if name == "import_raw":
+                command.append("--swap-right-left")
+                break
+    else:
+        for name, command in commands:
+            if name == "import_raw":
+                command.extend(["--right-left-mapping", args.right_left_mapping])
+                break
 
     failed = False
     for name, command in commands:

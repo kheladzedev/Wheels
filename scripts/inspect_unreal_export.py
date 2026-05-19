@@ -335,7 +335,7 @@ def draw_preview(
 
     _put_text(
         img,
-        "RAW EXPORT: confirmed Right/Left/Center mapping",
+        "RAW EXPORT: raw Right/Left/Center labels",
         (12, 36),
         (255, 255, 255),
         scale=0.9,
@@ -527,8 +527,9 @@ def inspect(args: argparse.Namespace) -> dict:
         "previews": drawn,
         "status_previews": status_previews,
         "contract_notes": [
-            "Right maps to points.a, Left maps to points.b, Center maps to "
-            "points.c_disc_bottom per plugin-author confirmation.",
+            "Right/Left raw naming differs between observed batches. The "
+            "importer resolves A/B mapping from screen-space x-order by "
+            "default; Center maps to points.c_disc_bottom.",
             "LeftTop/RightTop are optional bbox helper points observed in "
             "the 0002 trial export.",
             "(0,0), missing required points, and out-of-image required "
@@ -603,7 +604,7 @@ def write_md(path: Path, report: dict) -> None:
         "## Previews",
         "",
         f"{len(report['previews'])} preview images in `previews/`. Overlay "
-        "title is **RAW EXPORT: confirmed Right/Left/Center mapping**. "
+        "title is **RAW EXPORT: raw Right/Left/Center labels**. "
         "Point colors:",
         "",
         "- Right — blue",
