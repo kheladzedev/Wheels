@@ -101,6 +101,8 @@ def test_accept_unreal_export_runner_end_to_end(tmp_path: Path) -> None:
     assert report["import"]["valid_wheels"] == 1
     assert report["import"]["bbox_strategy_counts"]["top_points"] == 1
     assert report["import"]["drop_counts"]["all_zero"] == 1
+    assert report["raw_point_aliases"]["SphereLeft"] == "Left"
+    assert report["import"]["raw_point_aliases"]["SphereRight"] == "Right"
     assert report["conversion"]["wheels"] == 1
     assert (out_root / "unreal_0002_trial" / "acceptance_report.md").is_file()
 
@@ -143,6 +145,7 @@ def test_accept_unreal_export_propagates_diagnostic_swap(tmp_path: Path) -> None
     assert "Mapping mode: **screen-sides**" in md
     assert "Mapping basis: **diagnostic_swap_right_left**" in md
     assert "Diagnostic Right/Left swap: **True**" in md
+    assert "SphereLeft->Left" in md
 
 
 def test_accept_unreal_export_auto_maps_screen_side_export(tmp_path: Path) -> None:

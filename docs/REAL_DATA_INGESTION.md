@@ -148,6 +148,12 @@ For every rendered frame, the Unreal export should produce:
   `c_disc_bottom`): A/B are floor-ray points, C is the lowest visible
   metal-rim/disc point.
 
+The current raw Unreal plugin may instead export keyPoint `.txt` files
+with actor names `SphereLeft`, `SphereRight`, `SphereLeftTop`,
+`SphereRightTop`, and `Center`. The intake scripts normalize those names to
+`Left`, `Right`, `LeftTop`, `RightTop`, and `Center`; the final training and
+AR contracts remain `points.a`, `points.b`, and `points.c_disc_bottom`.
+
 **Strongly preferred** (cheap from Unreal, expensive to re-derive):
 
 - Camera intrinsics (`fx, fy, cx, cy`) and extrinsics (camera-to-world).

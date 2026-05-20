@@ -384,6 +384,7 @@ def _summarise(
     mapping_requested = import_report.get("right_left_mapping_requested")
     mapping_resolved = import_report.get("right_left_mapping_resolved")
     mapping_counts = import_report.get("right_left_mapping_counts", {})
+    raw_point_aliases = import_report.get("raw_point_aliases", {})
 
     all_required_steps_ok = all(s.ok for s in steps)
     valid_wheels = int(import_report.get("valid_wheels") or 0)
@@ -422,6 +423,7 @@ def _summarise(
         "right_left_mapping_requested": mapping_requested,
         "right_left_mapping_resolved": mapping_resolved,
         "right_left_mapping_counts": mapping_counts,
+        "raw_point_aliases": raw_point_aliases,
         "diagnostic_swap_right_left": diagnostic_swap,
         "data_quality_gate": data_quality_gate,
         "steps": [
@@ -445,6 +447,7 @@ def _summarise(
             "right_left_mapping_requested": mapping_requested,
             "right_left_mapping_resolved": mapping_resolved,
             "right_left_mapping_counts": mapping_counts,
+            "raw_point_aliases": raw_point_aliases,
             "diagnostic_swap_right_left": diagnostic_swap,
             "images_imported": import_report.get("images_imported"),
             "keypoint_object_files_found": import_report.get(
@@ -493,6 +496,12 @@ def _write_md(path: Path, report: dict[str, Any]) -> None:
         f"- Right/Left mapping requested: **{report.get('right_left_mapping_requested')}**",
         f"- Right/Left mapping resolved: **{report.get('right_left_mapping_resolved')}**",
         f"- Diagnostic Right/Left swap: **{report.get('diagnostic_swap_right_left')}**",
+    ]
+    aliases = report.get("raw_point_aliases") or {}
+    if aliases:
+        alias_text = ", ".join(f"{k}->{v}" for k, v in sorted(aliases.items()))
+        lines.append(f"- Raw point aliases: `{alias_text}`")
+    lines += [
         "",
         "## Counts",
         "",

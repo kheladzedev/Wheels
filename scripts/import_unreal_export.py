@@ -13,6 +13,9 @@ Legacy trial export ``0002`` used inverted raw names
 mapping is written to metadata and acceptance reports.
 
 Newer trial exports may also include ``LeftTop`` and ``RightTop``.
+The Unreal Blueprint actor names from Igor's documentation
+(``SphereLeft``, ``SphereRight``, ``SphereLeftTop``, ``SphereRightTop``)
+are accepted as aliases and normalized before import.
 Those are optional bbox helper points; when both are present, non-zero,
 and inside the image, the importer builds a tighter full-wheel bbox
 from all five points instead of using the older A/B/C-only heuristic.
@@ -75,6 +78,12 @@ import inspect_unreal_export as ix  # noqa: E402
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 DEFAULT_MARGIN_PX = 80
 OPTIONAL_BBOX_POINT_NAMES = ("LeftTop", "RightTop")
+RAW_POINT_ALIASES = {
+    "SphereRight": "Right",
+    "SphereLeft": "Left",
+    "SphereRightTop": "RightTop",
+    "SphereLeftTop": "LeftTop",
+}
 
 RIGHT_LEFT_MAPPING_AUTO = "auto"
 RIGHT_LEFT_MAPPING_CONFIRMED = "confirmed"
@@ -618,6 +627,14 @@ def _write_metadata(
         "Center": "c_disc_bottom",
         "LeftTop": "bbox helper when present",
         "RightTop": "bbox helper when present",
+        "SphereRight": (
+            "b" if resolved_mapping == RIGHT_LEFT_MAPPING_SCREEN_SIDES else "a"
+        ),
+        "SphereLeft": (
+            "a" if resolved_mapping == RIGHT_LEFT_MAPPING_SCREEN_SIDES else "b"
+        ),
+        "SphereRightTop": "bbox helper when present",
+        "SphereLeftTop": "bbox helper when present",
     }
     source_info = {
         "source_name": source_name,
@@ -626,6 +643,7 @@ def _write_metadata(
         "captured_at": None,
         "imported_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
         "mapping": mapping,
+        "raw_point_aliases": RAW_POINT_ALIASES,
         "mapping_basis": mapping_basis,
         "mapping_mode": resolved_mapping,
         "right_left_mapping_requested": requested_mapping,
@@ -658,6 +676,7 @@ def _write_metadata(
         "imported_at": source_info["imported_at"],
         "margin_px": args.margin,
         "mapping": mapping,
+        "raw_point_aliases": RAW_POINT_ALIASES,
         "mapping_basis": mapping_basis,
         "mapping_mode": resolved_mapping,
         "right_left_mapping_requested": requested_mapping,

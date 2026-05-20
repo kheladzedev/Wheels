@@ -92,6 +92,13 @@ Each keyPoint object should contain:
   full-wheel bbox from all five points. If the Unreal collector can add
   an explicit `BBox: x1,y1,x2,y2`, that is still preferred.
 
+Igor's current Blueprint docs name these point actors `SphereLeft`,
+`SphereRight`, `SphereLeftTop`, and `SphereRightTop`. The raw inspector and
+importer accept those names as aliases and normalize them to `Left`,
+`Right`, `LeftTop`, and `RightTop` before validation. This is an input
+compatibility layer only; downstream AR JSON still emits only
+`points.a`, `points.b`, and `points.c_disc_bottom`.
+
 Observed historical note: the `0002` trial export used inverted raw names
 (`Right` was the left screen-space point and `Left` was the right
 screen-space point), while `0003` uses literal screen-side names. The raw

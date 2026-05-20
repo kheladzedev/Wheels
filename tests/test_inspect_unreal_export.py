@@ -54,10 +54,45 @@ def test_parse_keypoint_unreal_format_with_optional_top_points():
     assert out["RightTop"] == pytest.approx((90.0, 120.0))
 
 
+def test_parse_keypoint_unreal_format_with_sphere_aliases():
+    text = (
+        "{\n"
+        '{name:"SphereRight",XY:100.0,420.0\n},\n'
+        '{name:"SphereLeft",XY:300.0,420.0\n},\n'
+        '{name:"Center",XY:200.0,330.0\n},\n'
+        '{name:"SphereLeftTop",XY:310.0,120.0\n},\n'
+        '{name:"SphereRightTop",XY:90.0,120.0\n}\n}'
+    )
+    out = ix.parse_keypoint_text(text)
+    assert set(out) == {"Right", "Left", "Center", "LeftTop", "RightTop"}
+    assert out["Right"] == pytest.approx((100.0, 420.0))
+    assert out["Left"] == pytest.approx((300.0, 420.0))
+    assert out["LeftTop"] == pytest.approx((310.0, 120.0))
+    assert out["RightTop"] == pytest.approx((90.0, 120.0))
+
+
 def test_parse_keypoint_simple_format():
     text = "Right: 1.0,2.0\nLeft: 3.0,4.0\nCenter: 5.0,6.0\n"
     out = ix.parse_keypoint_text(text)
     assert out == {"Right": (1.0, 2.0), "Left": (3.0, 4.0), "Center": (5.0, 6.0)}
+
+
+def test_parse_keypoint_simple_format_with_sphere_aliases():
+    text = (
+        "SphereRight: 1.0,2.0\n"
+        "SphereLeft: 3.0,4.0\n"
+        "Center: 5.0,6.0\n"
+        "SphereLeftTop: 7.0,8.0\n"
+        "SphereRightTop: 9.0,10.0\n"
+    )
+    out = ix.parse_keypoint_text(text)
+    assert out == {
+        "Right": (1.0, 2.0),
+        "Left": (3.0, 4.0),
+        "Center": (5.0, 6.0),
+        "LeftTop": (7.0, 8.0),
+        "RightTop": (9.0, 10.0),
+    }
 
 
 def test_parse_keypoint_handles_negative_values():
@@ -261,12 +296,14 @@ def test_inspect_end_to_end(tmp_path: Path):
     assert loaded["counts_by_status"] == counts
     assert loaded["status_previews"][ix.STATUS_VALID]
     assert loaded["status_previews"][ix.STATUS_OUT_OF_BOUNDS]
+    assert loaded["raw_point_aliases"]["SphereLeft"] == "Left"
 
     md = (out / "report.md").read_text()
     assert "RAW EXPORT" in md or "Raw Unreal export inspection" in md
     assert "Status preview galleries" in md
     assert "Contract notes" in md
     assert "NOT_APPROVED_FOR_TRAINING" in md
+    assert "SphereLeft->Left" in md
 
     # At least one preview was rendered (frames have signal).
     preview_files = list((out / "previews").glob("*.jpg"))

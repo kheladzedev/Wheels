@@ -135,6 +135,17 @@ def _kp_text_with_top(right, left, center, left_top, right_top) -> str:
     )
 
 
+def _kp_text_with_sphere_aliases(right, left, center, left_top, right_top) -> str:
+    return (
+        "{\n"
+        f'{{name:"SphereRight",XY:{right[0]},{right[1]}\n}},\n'
+        f'{{name:"SphereLeft",XY:{left[0]},{left[1]}\n}},\n'
+        f'{{name:"Center",XY:{center[0]},{center[1]}\n}},\n'
+        f'{{name:"SphereLeftTop",XY:{left_top[0]},{left_top[1]}\n}},\n'
+        f'{{name:"SphereRightTop",XY:{right_top[0]},{right_top[1]}\n}}\n}}'
+    )
+
+
 def test_try_build_wheel_valid():
     summary = imp.ImportSummary()
     wheel = imp._try_build_wheel(
@@ -172,6 +183,30 @@ def test_try_build_wheel_prefers_optional_top_point_bbox():
     assert wheel["bbox_xyxy"] == pytest.approx([90.0, 120.0, 310.0, 420.0])
     assert summary.bbox_from_top_points == 1
     assert summary.bbox_from_floorray == 0
+    assert all(v == 0 for v in summary.drop_counts.values())
+
+
+def test_try_build_wheel_accepts_sphere_aliases_from_blueprint_docs():
+    summary = imp.ImportSummary()
+    wheel = imp._try_build_wheel(
+        _kp_text_with_sphere_aliases(
+            (100.0, 420.0),
+            (300.0, 420.0),
+            (200.0, 330.0),
+            (310.0, 120.0),
+            (90.0, 120.0),
+        ),
+        640,
+        480,
+        80,
+        summary,
+    )
+    assert wheel is not None
+    assert wheel["points"]["a"] == [100.0, 420.0]
+    assert wheel["points"]["b"] == [300.0, 420.0]
+    assert wheel["points"]["c_disc_bottom"] == [200.0, 330.0]
+    assert wheel["bbox_xyxy"] == pytest.approx([90.0, 120.0, 310.0, 420.0])
+    assert summary.bbox_from_top_points == 1
     assert all(v == 0 for v in summary.drop_counts.values())
 
 
@@ -300,6 +335,19 @@ def _write_kp_with_top(path: Path, right, left, center, left_top, right_top):
     path.write_text(_kp_text_with_top(right, left, center, left_top, right_top))
 
 
+def _write_kp_with_sphere_aliases(
+    path: Path,
+    right,
+    left,
+    center,
+    left_top,
+    right_top,
+):
+    path.write_text(
+        _kp_text_with_sphere_aliases(right, left, center, left_top, right_top)
+    )
+
+
 def _build_fake_export(root: Path):
     (root / "Images").mkdir(parents=True)
     (root / "Ground").mkdir(parents=True)
@@ -341,6 +389,22 @@ def _build_fake_swapped_export(root: Path):
         (200.0, 330.0),
         (90.0, 120.0),
         (310.0, 120.0),
+    )
+
+
+def _build_fake_sphere_alias_export(root: Path):
+    (root / "Images").mkdir(parents=True)
+    (root / "Ground").mkdir(parents=True)
+    (root / "keyPoint" / "0").mkdir(parents=True)
+    img = np.ones((480, 640, 3), dtype=np.uint8) * 200
+    cv2.imwrite(str(root / "Images/0.jpg"), img)
+    _write_kp_with_sphere_aliases(
+        root / "keyPoint/0/0.txt",
+        (100.0, 420.0),
+        (300.0, 420.0),
+        (200.0, 330.0),
+        (310.0, 120.0),
+        (90.0, 120.0),
     )
 
 
@@ -404,12 +468,58 @@ def test_import_end_to_end(tmp_path: Path):
         "Center": "c_disc_bottom",
         "LeftTop": "bbox helper when present",
         "RightTop": "bbox helper when present",
+        "SphereRight": "a",
+        "SphereLeft": "b",
+        "SphereRightTop": "bbox helper when present",
+        "SphereLeftTop": "bbox helper when present",
+    }
+    assert src_info["raw_point_aliases"] == {
+        "SphereRight": "Right",
+        "SphereLeft": "Left",
+        "SphereRightTop": "RightTop",
+        "SphereLeftTop": "LeftTop",
     }
     assert src_info["mapping_basis"] == "auto_screen_x_majority"
     assert src_info["right_left_mapping_requested"] == "auto"
     assert src_info["right_left_mapping_resolved"] == "confirmed"
     assert src_info["not_yet_training_approved"] is True
     assert src_info["requires_human_preview"] is True
+
+
+def test_import_end_to_end_accepts_sphere_aliases_from_blueprint_docs(
+    tmp_path: Path,
+):
+    src = tmp_path / "export"
+    src.mkdir()
+    _build_fake_sphere_alias_export(src)
+
+    out_root = tmp_path / "out"
+    args = imp.parse_args(
+        [
+            "--source-root",
+            str(src),
+            "--out-root",
+            str(out_root),
+            "--overwrite",
+        ]
+    )
+    rc = imp.run(args)
+    assert rc == 0
+
+    a0 = json.loads((out_root / "annotations/0.json").read_text())
+    assert len(a0["wheels"]) == 1
+    assert a0["wheels"][0]["points"]["a"] == [100.0, 420.0]
+    assert a0["wheels"][0]["points"]["b"] == [300.0, 420.0]
+    assert a0["wheels"][0]["bbox_xyxy"] == pytest.approx(
+        [90.0, 120.0, 310.0, 420.0]
+    )
+
+    report = json.loads((out_root / "metadata/import_report.json").read_text())
+    assert report["valid_wheels"] == 1
+    assert report["bbox_strategy_counts"] == {"top_points": 1, "floorray": 0}
+    assert report["raw_point_aliases"]["SphereLeft"] == "Left"
+    assert report["mapping"]["SphereLeft"] == "b"
+    assert report["mapping"]["SphereRight"] == "a"
 
 
 def test_import_end_to_end_with_diagnostic_right_left_swap(tmp_path: Path):
@@ -449,6 +559,9 @@ def test_import_end_to_end_with_diagnostic_right_left_swap(tmp_path: Path):
     assert src_info["mapping_basis"] == "diagnostic_swap_right_left"
     assert src_info["mapping"]["Left"] == "a"
     assert src_info["mapping"]["Right"] == "b"
+    assert src_info["mapping"]["SphereLeft"] == "a"
+    assert src_info["mapping"]["SphereRight"] == "b"
+    assert src_info["raw_point_aliases"]["SphereLeft"] == "Left"
 
 
 def test_import_refuses_to_overwrite_without_flag(tmp_path: Path):

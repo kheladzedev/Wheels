@@ -52,17 +52,25 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 POINT_NAMES = ("Right", "Left", "Center")
 OPTIONAL_POINT_NAMES = ("LeftTop", "RightTop")
 ALL_POINT_NAMES = POINT_NAMES + OPTIONAL_POINT_NAMES
+POINT_NAME_ALIASES = {
+    "SphereRight": "Right",
+    "SphereLeft": "Left",
+    "SphereRightTop": "RightTop",
+    "SphereLeftTop": "LeftTop",
+}
+RAW_POINT_NAMES = ALL_POINT_NAMES + tuple(POINT_NAME_ALIASES)
+_POINT_NAME_RE = "|".join(sorted(RAW_POINT_NAMES, key=len, reverse=True))
 ZERO_EPS = 1e-6
 
 # Two formats observed in the wild — be tolerant.
 #   Unreal:  {name:"Right",XY:1.0,2.0},
 #   Simple:  Right: 1.0,2.0
 UNREAL_RE = re.compile(
-    r'name\s*:\s*"(Right|Left|Center|LeftTop|RightTop)"\s*,\s*'
+    rf'name\s*:\s*"({_POINT_NAME_RE})"\s*,\s*'
     r"XY\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)"
 )
 SIMPLE_RE = re.compile(
-    r"^\s*(Right|Left|Center|LeftTop|RightTop)\s*:"
+    rf"^\s*({_POINT_NAME_RE})\s*:"
     r"\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$",
     re.MULTILINE,
 )
@@ -153,17 +161,21 @@ def parse_keypoint_text(text: str) -> dict[str, tuple[float, float]]:
     """Parse a keyPoint .txt body.
 
     Tolerant of the two formats seen in real exports. Returns a dict
-    ``{Right|Left|Center|LeftTop|RightTop: (x, y)}``. Names not found
-    are absent. Only Right/Left/Center are required for the legacy
-    status classification; LeftTop/RightTop are optional bbox helpers
-    observed in the newer 0002 trial export.
+    ``{Right|Left|Center|LeftTop|RightTop: (x, y)}``. Unreal Blueprint
+    point actor names from Igor's docs (``SphereLeft``/``SphereRight`` and
+    top variants) are normalized to those canonical names. Names not found
+    are absent. Only Right/Left/Center are required for the legacy status
+    classification; LeftTop/RightTop are optional bbox helpers observed in
+    newer trial exports.
     """
     out: dict[str, tuple[float, float]] = {}
     for m in UNREAL_RE.finditer(text):
-        out.setdefault(m.group(1), (float(m.group(2)), float(m.group(3))))
+        name = POINT_NAME_ALIASES.get(m.group(1), m.group(1))
+        out.setdefault(name, (float(m.group(2)), float(m.group(3))))
     if not out:
         for m in SIMPLE_RE.finditer(text):
-            out.setdefault(m.group(1), (float(m.group(2)), float(m.group(3))))
+            name = POINT_NAME_ALIASES.get(m.group(1), m.group(1))
+            out.setdefault(name, (float(m.group(2)), float(m.group(3))))
     return out
 
 
@@ -526,12 +538,15 @@ def inspect(args: argparse.Namespace) -> dict:
         "examples_by_status": examples,
         "previews": drawn,
         "status_previews": status_previews,
+        "raw_point_aliases": POINT_NAME_ALIASES,
         "contract_notes": [
             "Right/Left raw naming differs between observed batches. The "
             "importer resolves A/B mapping from screen-space x-order by "
             "default; Center maps to points.c_disc_bottom.",
+            "SphereLeft/SphereRight/SphereLeftTop/SphereRightTop are accepted "
+            "as Igor Blueprint aliases and normalized before classification.",
             "LeftTop/RightTop are optional bbox helper points observed in "
-            "the 0002 trial export.",
+            "trial exports.",
             "(0,0), missing required points, and out-of-image required "
             "points are treated as invisible/invalid and dropped by import.",
             "Ground metadata is preserved in the import report only; ML "
@@ -617,6 +632,10 @@ def write_md(path: Path, report: dict) -> None:
         "tilted cross, and labelled with a trailing `*`.",
         "",
     ]
+    aliases = report.get("raw_point_aliases") or {}
+    if aliases:
+        alias_text = ", ".join(f"{k}->{v}" for k, v in sorted(aliases.items()))
+        lines += ["Raw point aliases accepted: `" + alias_text + "`.", ""]
     lines += ["## Status preview galleries", ""]
     for status in ALL_STATUSES:
         paths = report.get("status_previews", {}).get(status, [])
