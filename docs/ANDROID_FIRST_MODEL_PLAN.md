@@ -104,6 +104,8 @@ These are tracked alongside the broader open items in
 ## See also
 
 - `docs/AR_ML_CONTRACT.md` — JSON contract.
+- `docs/MOBILENETV2_LITERT_HANDOFF.md` — current provisional
+  MobileNetV2 LiteRT handoff package and validation bundle.
 - `docs/KEYPOINT_SPEC.md` — A/B/C definitions.
 - `src/export_model.py` — multi-format export with sanity check.
 - `src/eval_keypoints.py` — evaluation pipeline.
