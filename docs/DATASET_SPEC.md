@@ -34,8 +34,8 @@ Rules:
 |----|-------|---------------------------------------------------------------|
 | 0  | wheel | Full wheel (tire + rim) visible from outside.                 |
 
-Single class. The rim is **not** a separate class anymore — it is encoded
-by two of the three keypoints below.
+Single class. The rim is **not** a separate class anymore. Wheel pose is
+encoded by the three keypoints below.
 
 ## Keypoints
 
@@ -44,13 +44,13 @@ not the names):
 
 | Index | Internal name (code) | AR-facing name | Definition |
 |-------|----------------------|----------------|------------|
-| 0     | `rim_left`           | `point_a`      | Left point on the metal rim. AR raycasts from here as the **left ray source** for plane recovery. |
-| 1     | `rim_right`          | `point_b`      | Right point on the metal rim. With `rim_left`, defines the wheel's vertical plane after AR-side raycast + RANSAC. |
-| 2     | `disc_bottom`        | `point_c_disc_bottom` | Physical lowest point of the metal disc — the height anchor for AR placement. For straight-on views, may coincide with `rim_right`; for angled views, slightly below it. |
+| 0     | `rim_left`           | `a`            | Left screen-space floor-ray point near the wheel footprint/base. AR raycasts this pixel onto the floor; it is **not** a metal-rim point. |
+| 1     | `rim_right`          | `b`            | Right screen-space floor-ray point near the wheel footprint/base. With `a`, AR recovers the wheel's vertical plane after floor raycast + RANSAC; it is **not** a metal-rim point. |
+| 2     | `disc_bottom`        | `c_disc_bottom` | Lower visible point of the metal rim / disc where the rim meets the tire — the height anchor for AR placement. |
 
-The AR-facing rename and the `disc_bottom` semantics are pending
-AR-team confirmation — see `docs/OPEN_QUESTIONS_AR_SPEC.md` §1 and §3
-and `docs/KEYPOINT_SPEC.md`. The label *order* and *count* are locked.
+The AR-facing names and keypoint semantics are confirmed. See
+`docs/KEYPOINT_SPEC.md` and `docs/AR_ML_CONTRACT.md`. The label *order*
+and *count* remain locked for the YOLO-pose labels.
 
 ### Visibility flags
 
@@ -85,17 +85,18 @@ Example (`labels/train/IMG_0123.txt`):
 ```
 
 One wheel near the bottom-center, with all three keypoints fully visible.
-`disc_bottom` slightly below `rim_right`.
+The first two keypoints are floor-ray/base points; `disc_bottom` is the
+lower visible rim/disc point.
 
 ## Annotator quality checklist
 
 - Bbox tight around the visible wheel — no extra background.
 - Keypoint placement is the contract — be consistent across wheels:
-  - `rim_left` and `rim_right` lie on the metallic rim (not the tire
-    rubber), at the **left-most** and **right-most** visible points of
-    the rim respectively.
-  - `disc_bottom` is the physical lowest point of the metal disc. For
-    perfectly straight-on views you may place it on top of `rim_right`.
+  - `rim_left` and `rim_right` are legacy internal label strings for
+    `a` and `b`; place them as left/right screen-space floor-ray points
+    near the wheel footprint/base, **not** on the metal rim.
+  - `disc_bottom` is the lower visible point of the metal rim / disc
+    where the rim meets the tire.
 - Annotate partially visible wheels if at least ~50% of the disc is in
   frame. Mark occluded keypoints with `visibility = 1` and the inferred
   position. Mark off-frame keypoints with `visibility = 0`.

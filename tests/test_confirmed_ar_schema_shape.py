@@ -18,7 +18,12 @@ Pinned invariants:
 
 from __future__ import annotations
 
-from postprocess_wheels import build_ar_payload, to_confirmed_schema
+from postprocess_wheels import (
+    CONFIRMED_FORBIDDEN_KEY_SUBSTRINGS,
+    assert_confirmed_no_forbidden_fields,
+    build_ar_payload,
+    to_confirmed_schema,
+)
 
 ALLOWED_TOP_LEVEL = {"frame_id", "wheels"}
 ALLOWED_WHEEL_KEYS = {"bbox_xyxy", "confidence", "points"}
@@ -169,6 +174,22 @@ def test_confirmed_schema_has_no_forbidden_keys_anywhere() -> None:
         "Forbidden field name(s) leaked into the confirmed AR schema "
         f"(ML must not emit 3D / tracking / RANSAC / plane / timestamp): {leaks}"
     )
+
+
+def test_runtime_forbidden_guard_uses_same_substring_sweep() -> None:
+    assert CONFIRMED_FORBIDDEN_KEY_SUBSTRINGS == FORBIDDEN_KEY_SUBSTRINGS
+
+
+def test_runtime_forbidden_guard_rejects_nested_substring_leaks() -> None:
+    bad = to_confirmed_schema(_two_wheel_legacy_payload())
+    bad["wheels"][0]["points"]["a"] = {"xy": [1.0, 2.0], "world_xyz": [0, 0, 0]}
+
+    try:
+        assert_confirmed_no_forbidden_fields(bad, source_label="test")
+    except AssertionError as exc:
+        assert "world" in str(exc)
+    else:
+        raise AssertionError("runtime guard accepted a nested forbidden field")
 
 
 def test_confirmed_schema_empty_wheels_is_valid() -> None:

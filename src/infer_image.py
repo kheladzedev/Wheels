@@ -42,9 +42,10 @@ from ultralytics import YOLO
 
 from postprocess_wheels import (
     N_KEYPOINTS,
+    assert_confirmed_schema_closed,
     build_ar_payload,
     to_confirmed_schema,
-    to_target_schema,
+    visibility_from_keypoint_confidence,
 )
 
 WHEEL_CLASS_NAMES = {"wheel"}
@@ -116,17 +117,6 @@ def parse_args() -> argparse.Namespace:
         "If omitted, Ultralytics picks the best available.",
     )
     p.add_argument(
-        "--target-schema",
-        action="store_true",
-        help=(
-            "DEPRECATED preview path. Additionally write <stem>_target.json "
-            "in the pre-confirmation target schema "
-            "(point_a/point_b/point_c_disc_bottom + bbox_xywh + parallel "
-            "dicts). Kept only for the AR team's earlier integration "
-            "preview; the confirmed schema in <stem>.json supersedes it."
-        ),
-    )
-    p.add_argument(
         "--confirmed-schema",
         action="store_true",
         help=(
@@ -135,10 +125,23 @@ def parse_args() -> argparse.Namespace:
             "that passed this flag."
         ),
     )
+    p.add_argument(
+        "--require-frame-id",
+        action="store_true",
+        help=(
+            "Require an explicit non-empty --frame-id instead of deriving it "
+            "from the image stem."
+        ),
+    )
     return p.parse_args()
 
 
-def determine_frame_id(arg_frame_id: str | None, image_path: Path) -> str:
+def determine_frame_id(
+    arg_frame_id: str | None,
+    image_path: Path,
+    *,
+    require_explicit: bool = False,
+) -> str:
     """Confirmed schema requires `frame_id`. When the caller (AR client)
     didn't pass one — single-image inference, debug runs — derive it
     from the image stem so the contract stays satisfied without
@@ -146,6 +149,8 @@ def determine_frame_id(arg_frame_id: str | None, image_path: Path) -> str:
     """
     if arg_frame_id is not None and arg_frame_id != "":
         return arg_frame_id
+    if require_explicit:
+        raise ValueError("--frame-id is required when --require-frame-id is passed")
     return image_path.stem
 
 
@@ -169,9 +174,7 @@ def extract_keypoints(box_idx: int, result) -> list[dict]:
     kps: list[dict] = []
     for i in range(xy.shape[0]):
         c = float(conf[i])
-        # Heuristic: kp with confidence < 0.15 is effectively missing.
-        # The exact threshold is informational — AR uses confidence directly.
-        vis = 2 if c >= 0.5 else (1 if c >= 0.15 else 0)
+        vis = visibility_from_keypoint_confidence(c)
         kps.append(
             {
                 "xy": [float(xy[i, 0]), float(xy[i, 1])],
@@ -263,7 +266,11 @@ def main() -> None:
         raise FileNotFoundError(f"Image not found: {args.image}")
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    frame_id = determine_frame_id(args.frame_id, args.image)
+    frame_id = determine_frame_id(
+        args.frame_id,
+        args.image,
+        require_explicit=args.require_frame_id,
+    )
     timestamp = args.timestamp if args.timestamp is not None else time.time()
 
     model = YOLO(str(args.model))
@@ -360,20 +367,16 @@ def main() -> None:
 
     # PRIMARY output — AR-team confirmed schema, no legacy fields.
     confirmed_payload = to_confirmed_schema(legacy_payload)
-    assert "frame_id" in confirmed_payload, (
-        "Confirmed schema must always include frame_id (derived from image "
-        "stem if not provided) — see docs/AR_ML_CONTRACT.md."
+    assert_confirmed_schema_closed(
+        confirmed_payload,
+        source_label=f"image {args.image}",
+        require_frame_id=True,
     )
-    for forbidden in ("timestamp", "stats", "image", "image_size", "thresholds"):
-        assert forbidden not in confirmed_payload, (
-            f"Confirmed payload top-level leaked '{forbidden}'."
-        )
 
     stem = args.image.stem
     json_path = args.out_dir / f"{stem}.json"
     legacy_json_path = args.out_dir / f"{stem}_legacy.json"
     raw_json_path = args.out_dir / f"{stem}_raw.json"
-    target_json_path = args.out_dir / f"{stem}_target.json"
     raw_vis_path = args.out_dir / f"{stem}_raw_pred.jpg"
     final_vis_path = args.out_dir / f"{stem}_final_pred.jpg"
 
@@ -388,13 +391,6 @@ def main() -> None:
     raw_json_path.write_text(
         json.dumps(raw_payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    if args.target_schema:
-        target_payload = to_target_schema(legacy_payload)
-        target_json_path.write_text(
-            json.dumps(target_payload, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-
     original = cv2.imread(str(args.image))
     if original is None:
         raise RuntimeError(f"OpenCV could not decode image: {args.image}")
@@ -431,8 +427,6 @@ def main() -> None:
     print(f"AR JSON (confirmed):  {json_path}")
     print(f"Legacy JSON:          {legacy_json_path}")
     print(f"Raw JSON:             {raw_json_path}")
-    if args.target_schema:
-        print(f"Target preview JSON:  {target_json_path}")
     if args.confirmed_schema:
         print(
             "Note: --confirmed-schema is a no-op now; "

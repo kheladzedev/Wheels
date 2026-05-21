@@ -183,6 +183,41 @@ def test_assert_no_forbidden_wheel_level(bad_key: str):
         _assert_no_forbidden(payload, source_label="test")
 
 
+def test_assert_no_forbidden_rejects_forbidden_substrings_at_wheel_level():
+    payload = {
+        "frame_id": "f",
+        "wheels": [
+            {
+                "bbox_xyxy": [0, 0, 1, 1],
+                "confidence": 0.5,
+                "points": {"a": [0, 0], "b": [1, 1], "c_disc_bottom": [0.5, 0.9]},
+                "ransac_residual": 0.1,
+            }
+        ],
+    }
+    with pytest.raises(AssertionError, match="ransac"):
+        _assert_no_forbidden(payload, source_label="test")
+
+
+def test_assert_no_forbidden_rejects_forbidden_substrings_nested_in_points():
+    payload = {
+        "frame_id": "f",
+        "wheels": [
+            {
+                "bbox_xyxy": [0, 0, 1, 1],
+                "confidence": 0.5,
+                "points": {
+                    "a": {"xy": [0, 0], "depth": 1.0},
+                    "b": [1, 1],
+                    "c_disc_bottom": [0.5, 0.9],
+                },
+            }
+        ],
+    }
+    with pytest.raises(AssertionError, match="depth"):
+        _assert_no_forbidden(payload, source_label="test")
+
+
 # ---------------------------------------------------------------------------
 # _write_per_frame — file layout
 # ---------------------------------------------------------------------------
@@ -311,15 +346,12 @@ def test_write_per_frame_legacy_file_carries_meta(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# CLI surface — backward-compat alias still works
+# CLI surface
 # ---------------------------------------------------------------------------
 
 
 def test_emit_legacy_flag_exists_on_parser(monkeypatch):
-    """Sanity check: argparse exposes --emit-legacy and --target-schema as a
-    deprecated alias. We don't import argparse here to avoid coupling, just
-    invoke `parse_args` with both flags via sys.argv.
-    """
+    """Sanity check: argparse exposes --emit-legacy."""
     from infer_batch import parse_args
 
     monkeypatch.setattr(
@@ -333,9 +365,27 @@ def test_emit_legacy_flag_exists_on_parser(monkeypatch):
             "--out-dir",
             "z",
             "--emit-legacy",
-            "--target-schema",
         ],
     )
     ns = parse_args()
     assert ns.emit_legacy is True
-    assert ns.target_schema is True
+
+
+def test_target_schema_flag_is_removed_from_parser(monkeypatch):
+    from infer_batch import parse_args
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "infer_batch.py",
+            "--source",
+            "x",
+            "--model",
+            "y.pt",
+            "--out-dir",
+            "z",
+            "--target-schema",
+        ],
+    )
+    with pytest.raises(SystemExit):
+        parse_args()

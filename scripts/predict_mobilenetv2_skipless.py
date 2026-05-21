@@ -29,7 +29,11 @@ from src.models.mobilenetv2_skipless_pose import (  # noqa: E402
     MobileNetV2SkiplessPose,
     decode_predictions,
 )
-from src.postprocess_wheels import build_ar_payload, to_confirmed_schema  # noqa: E402
+from src.postprocess_wheels import (  # noqa: E402
+    assert_confirmed_schema_closed,
+    build_ar_payload,
+    to_confirmed_schema,
+)
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -266,7 +270,11 @@ def detections_to_confirmed_payload(
     )
     confirmed_payload = to_confirmed_schema(legacy_payload)
     assert "frame_id" in confirmed_payload
-    _assert_confirmed_schema_closed(confirmed_payload)
+    assert_confirmed_schema_closed(
+        confirmed_payload,
+        source_label=f"frame {frame_id}",
+        require_frame_id=True,
+    )
     return confirmed_payload
 
 
@@ -439,22 +447,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         encoding="utf-8",
     )
     return summary
-
-
-def _assert_confirmed_schema_closed(payload: dict[str, Any]) -> None:
-    allowed_top = {"frame_id", "wheels"}
-    if set(payload) != allowed_top:
-        raise AssertionError(f"confirmed payload keys changed: {sorted(payload)}")
-    for idx, wheel in enumerate(payload["wheels"]):
-        allowed_wheel = {"bbox_xyxy", "confidence", "points"}
-        if set(wheel) != allowed_wheel:
-            raise AssertionError(
-                f"confirmed wheel[{idx}] keys changed: {sorted(wheel)}"
-            )
-        if set(wheel["points"]) != set(POINT_ORDER):
-            raise AssertionError(
-                f"confirmed wheel[{idx}] points changed: {sorted(wheel['points'])}"
-            )
 
 
 def _clip_float(value: float, lower: float, upper: float) -> float:

@@ -30,20 +30,9 @@ from typing import Iterable
 KEYPOINT_NAMES = ("rim_left", "rim_right", "disc_bottom")
 N_KEYPOINTS = 3
 
-# Mapping from the internal/training keypoint names to the AR-target naming
-# described in docs/KEYPOINT_SPEC.md and docs/AR_ML_CONTRACT.md.
-# Used only by the optional `--target-schema` preview output of
-# `infer_image.py` — does not affect the load-bearing current contract.
-INTERNAL_TO_TARGET_KP = {
-    "rim_left": "point_a",
-    "rim_right": "point_b",
-    "disc_bottom": "point_c_disc_bottom",
-}
-
 # Mapping from internal/training keypoint names to the AR-team **confirmed**
 # naming (response 2026-05-13, see docs/AR_ML_CONTRACT.md "JSON shape").
 # Shorter, flat keys; used by the primary output path via `to_confirmed_schema`.
-# Independent of INTERNAL_TO_TARGET_KP.
 INTERNAL_TO_CONFIRMED_KP = {
     "rim_left": "a",
     "rim_right": "b",
@@ -51,9 +40,122 @@ INTERNAL_TO_CONFIRMED_KP = {
 }
 
 CONFIRMED_POINT_KEYS = ("a", "b", "c_disc_bottom")
+CONFIRMED_TOP_LEVEL_KEYS = frozenset({"frame_id", "wheels"})
+CONFIRMED_WHEEL_KEYS = frozenset({"bbox_xyxy", "confidence", "points"})
+CONFIRMED_FORBIDDEN_KEY_SUBSTRINGS = (
+    "track_id",
+    "track",
+    "world",
+    "plane",
+    "ransac",
+    "raycast",
+    "intrinsic",
+    "extrinsic",
+    "imu",
+    "depth",
+    "z_world",
+    "z_axis",
+    "3d",
+    "visibility",
+    "keypoints_confidence",
+    "point_confidence",
+    "kp_confidence",
+    "timestamp",
+)
+KEYPOINT_FULL_VISIBILITY_CONFIDENCE = 0.5
+KEYPOINT_OCCLUDED_VISIBILITY_CONFIDENCE = 0.15
 FLOOR_RAY_MIN_REL_Y = 0.80
 DISC_BOTTOM_MIN_REL_Y = 0.50
 MIN_FLOOR_RAY_WIDTH_FRACTION = 0.50
+
+
+def visibility_from_keypoint_confidence(confidence: float) -> int:
+    """Map model keypoint confidence to the legacy debug visibility flag."""
+    c = float(confidence)
+    if c >= KEYPOINT_FULL_VISIBILITY_CONFIDENCE:
+        return 2
+    if c >= KEYPOINT_OCCLUDED_VISIBILITY_CONFIDENCE:
+        return 1
+    return 0
+
+
+def _collect_key_leaks(value: object, path: str, leaks: list[str]) -> None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_str = str(key)
+            key_lower = key_str.lower()
+            for needle in CONFIRMED_FORBIDDEN_KEY_SUBSTRINGS:
+                if needle in key_lower:
+                    leaks.append(f"{path}.{key_str} contains {needle!r}")
+                    break
+            _collect_key_leaks(child, f"{path}.{key_str}", leaks)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _collect_key_leaks(child, f"{path}[{index}]", leaks)
+
+
+def assert_confirmed_no_forbidden_fields(payload: dict, source_label: str) -> None:
+    """Reject forbidden field names anywhere in a confirmed-schema payload."""
+    leaks: list[str] = []
+    _collect_key_leaks(payload, "$", leaks)
+    if leaks:
+        raise AssertionError(
+            f"{source_label}: forbidden confirmed-schema field name(s): {leaks}"
+        )
+
+
+def assert_confirmed_schema_closed(
+    payload: dict,
+    source_label: str,
+    *,
+    require_frame_id: bool = False,
+) -> None:
+    """Runtime guard for the closed confirmed AR response schema."""
+    if not isinstance(payload, dict):
+        raise AssertionError(f"{source_label}: confirmed payload is not an object")
+
+    assert_confirmed_no_forbidden_fields(payload, source_label=source_label)
+
+    top_keys = set(payload)
+    allowed_top = set(CONFIRMED_TOP_LEVEL_KEYS)
+    if require_frame_id:
+        if not isinstance(payload.get("frame_id"), str) or payload["frame_id"] == "":
+            raise AssertionError(
+                f"{source_label}: confirmed frame_id missing or empty"
+            )
+        if top_keys != allowed_top:
+            raise AssertionError(
+                f"{source_label}: confirmed top-level keys changed: {sorted(top_keys)}"
+            )
+    elif not top_keys <= allowed_top:
+        raise AssertionError(
+            f"{source_label}: confirmed top-level keys changed: {sorted(top_keys)}"
+        )
+
+    wheels = payload.get("wheels")
+    if not isinstance(wheels, list):
+        raise AssertionError(f"{source_label}: confirmed wheels is not a list")
+
+    for index, wheel in enumerate(wheels):
+        if not isinstance(wheel, dict):
+            raise AssertionError(
+                f"{source_label}: confirmed wheel[{index}] is not an object"
+            )
+        if set(wheel) != set(CONFIRMED_WHEEL_KEYS):
+            raise AssertionError(
+                f"{source_label}: confirmed wheel[{index}] keys changed: "
+                f"{sorted(wheel)}"
+            )
+        points = wheel.get("points")
+        if not isinstance(points, dict):
+            raise AssertionError(
+                f"{source_label}: confirmed wheel[{index}].points is not an object"
+            )
+        if set(points) != set(CONFIRMED_POINT_KEYS):
+            raise AssertionError(
+                f"{source_label}: confirmed wheel[{index}].points keys changed: "
+                f"{sorted(points)}"
+            )
 
 
 def confirmed_geometry_issues(wheel: dict) -> list[str]:
@@ -197,65 +299,6 @@ def build_ar_payload(
     if timestamp is not None:
         payload["timestamp"] = timestamp
     return payload
-
-
-def to_target_schema(ar_payload: dict) -> dict:
-    """Convert a current AR payload to the target schema in
-    docs/AR_ML_CONTRACT.md.
-
-    Pure restructure — no new information. Used behind --target-schema in
-    `infer_image.py` so the AR team can preview the target without
-    breaking consumers of the current contract.
-
-    Field changes vs current:
-      - bbox: xyxy list → xywh list under `bbox_xywh`
-      - keypoints: list-of-objects → dict keyed by AR-target name
-                   (point_a / point_b / point_c_disc_bottom)
-      - per-keypoint confidence: lifted out into a parallel dict
-                   `keypoints_confidence`
-      - per-keypoint visibility: lifted out into a parallel dict
-                   `visibility`
-      - dropped: `image`, `image_size`, `thresholds`, `stats`,
-                   `warnings` (see OPEN_QUESTIONS_AR_SPEC §10)
-
-    Pending AR-team confirmation: §3 (field names), §8 (bbox format),
-    §9 (dict vs array), §10 (dropped fields). This converter encodes the
-    *current target hypothesis*; it will move when the team answers.
-    """
-    target: dict = {"wheels": []}
-    if "frame_id" in ar_payload:
-        target["frame_id"] = ar_payload["frame_id"]
-    if "timestamp" in ar_payload:
-        target["timestamp"] = ar_payload["timestamp"]
-
-    for w in ar_payload.get("wheels", []):
-        x1, y1, x2, y2 = w["wheel_bbox"]
-        bbox_xywh = [
-            float(x1),
-            float(y1),
-            float(x2 - x1),
-            float(y2 - y1),
-        ]
-        kp_xy: dict[str, list[float]] = {}
-        kp_conf: dict[str, float | None] = {}
-        kp_vis: dict[str, int] = {}
-        for kp in w.get("keypoints", []):
-            target_name = INTERNAL_TO_TARGET_KP.get(kp["name"], kp["name"])
-            kp_xy[target_name] = [float(kp["xy"][0]), float(kp["xy"][1])]
-            kp_conf[target_name] = (
-                None if kp.get("confidence") is None else float(kp["confidence"])
-            )
-            kp_vis[target_name] = int(kp["visibility"])
-        target["wheels"].append(
-            {
-                "bbox_xywh": bbox_xywh,
-                "confidence": float(w["confidence"]),
-                "keypoints": kp_xy,
-                "keypoints_confidence": kp_conf,
-                "visibility": kp_vis,
-            }
-        )
-    return target
 
 
 def to_confirmed_schema(ar_payload: dict) -> dict:

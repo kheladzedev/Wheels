@@ -70,8 +70,9 @@ Earlier drafts used `point_a` / `point_b` /
 `point_c_disc_bottom`, `bbox_xywh`, `timestamp`, `visibility`, and
 per-keypoint confidence. Those fields are obsolete for AR consumption.
 They may still appear in legacy/debug artifacts such as
-`<stem>_legacy.json` or the deprecated `--target-schema` preview, but
-the production contract is the confirmed JSON shown above.
+`<stem>_legacy.json`, but the deprecated `--target-schema` preview path
+has been removed. The production contract is the confirmed JSON shown
+above.
 
 The important semantic revision remains: legacy literal training names
 `rim_left` / `rim_right` persist in some YOLO-pose label files for

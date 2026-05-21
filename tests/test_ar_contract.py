@@ -1,32 +1,25 @@
 """Contract tests pinning the AR JSON schemas.
 
 These tests are *shape* guards on the load-bearing ML -> AR contract, not
-behavior tests. The behavior of `build_ar_payload` / `to_target_schema`
-is covered by `tests/test_postprocess_wheels.py`. Anything here that
-fails means a payload field, key, type, ordering, or omission has
-drifted from what the AR client agreed to consume.
-
-Two halves:
-
-  - The **current (legacy) AR payload** produced by `build_ar_payload`.
-    This is what `infer_image.py` writes today.
-  - The **target AR payload** produced by `to_target_schema(...)`, per
-    `docs/AR_ML_CONTRACT.md` and `docs/OPEN_QUESTIONS_AR_SPEC.md`.
+model behavior tests. Anything here that fails means a payload field, key,
+type, ordering, or omission has drifted from what the AR client agreed to
+consume.
 
 Any breakage here requires explicit AR-team sign-off before merge.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Sequence
 
+import pytest
+
 from postprocess_wheels import (
-    INTERNAL_TO_TARGET_KP,
     KEYPOINT_NAMES,
     N_KEYPOINTS,
     build_ar_payload,
     to_confirmed_schema,
-    to_target_schema,
 )
 
 
@@ -221,160 +214,6 @@ def test_current_keypoint_confidence_none_is_legal():
 
 
 # ---------------------------------------------------------------------------
-# Target AR payload — top-level shape
-# ---------------------------------------------------------------------------
-
-
-def test_target_top_level_keys_with_frame_metadata():
-    target = to_target_schema(_fully_loaded_payload())
-    assert set(target.keys()) == {"wheels", "frame_id", "timestamp"}
-    # Explicit drop list — these were carried over for debug only.
-    for dropped in ("stats", "image", "image_size", "thresholds"):
-        assert dropped not in target
-
-
-def test_target_top_level_keys_without_frame_metadata():
-    det = _wheel((0, 0, 10, 10), 0.9, [(1, 1), (2, 2), (3, 3)])
-    payload = build_ar_payload([det])
-    target = to_target_schema(payload)
-    assert set(target.keys()) == {"wheels"}
-    assert "frame_id" not in target
-    assert "timestamp" not in target
-
-
-# ---------------------------------------------------------------------------
-# Target AR payload — per-wheel shape
-# ---------------------------------------------------------------------------
-
-
-def test_target_wheel_has_exact_keyset():
-    target = to_target_schema(_fully_loaded_payload())
-    w = target["wheels"][0]
-    assert set(w.keys()) == {
-        "bbox_xywh",
-        "confidence",
-        "keypoints",
-        "keypoints_confidence",
-        "visibility",
-    }
-
-
-def test_target_wheel_bbox_xywh_is_list_of_four_floats():
-    target = to_target_schema(_fully_loaded_payload())
-    bbox = target["wheels"][0]["bbox_xywh"]
-    assert isinstance(bbox, list)
-    assert len(bbox) == 4
-    for v in bbox:
-        assert isinstance(v, float)
-        assert not isinstance(v, bool)
-
-
-def test_target_wheel_confidence_is_float_in_unit_interval():
-    target = to_target_schema(_fully_loaded_payload())
-    conf = target["wheels"][0]["confidence"]
-    assert isinstance(conf, float)
-    assert 0.0 <= conf <= 1.0
-
-
-def test_target_keypoints_groups_are_dicts():
-    target = to_target_schema(_fully_loaded_payload())
-    w = target["wheels"][0]
-    # Per §9 — three parallel dicts (NOT an array of objects).
-    assert isinstance(w["keypoints"], dict)
-    assert isinstance(w["keypoints_confidence"], dict)
-    assert isinstance(w["visibility"], dict)
-
-
-def test_target_keypoints_groups_share_exact_key_order():
-    target = to_target_schema(_fully_loaded_payload())
-    w = target["wheels"][0]
-    expected = ("point_a", "point_b", "point_c_disc_bottom")
-    # Order is fixed — AR's deserializer reads positionally in some paths.
-    assert tuple(w["keypoints"].keys()) == expected
-    assert tuple(w["keypoints_confidence"].keys()) == expected
-    assert tuple(w["visibility"].keys()) == expected
-
-
-def test_target_keypoints_values_per_name():
-    target = to_target_schema(_fully_loaded_payload())
-    w = target["wheels"][0]
-    for name in ("point_a", "point_b", "point_c_disc_bottom"):
-        xy = w["keypoints"][name]
-        assert isinstance(xy, list)
-        assert len(xy) == 2
-        for v in xy:
-            assert isinstance(v, float)
-            assert not isinstance(v, bool)
-
-        c = w["keypoints_confidence"][name]
-        assert c is None or isinstance(c, float)
-        if isinstance(c, float):
-            assert 0.0 <= c <= 1.0
-
-        vis = w["visibility"][name]
-        assert isinstance(vis, int)
-        assert not isinstance(vis, bool)
-        assert vis in {0, 1, 2}
-
-
-def test_target_keypoint_confidence_none_is_legal():
-    """`None` per-kp confidence survives the schema conversion."""
-    det = _wheel(
-        (0, 0, 10, 10),
-        0.9,
-        kp_xys=[(1, 1), (2, 2), (3, 3)],
-        kp_confs=[None, None, None],
-    )
-    payload = build_ar_payload([det])
-    target = to_target_schema(payload)
-    w = target["wheels"][0]
-    for name in ("point_a", "point_b", "point_c_disc_bottom"):
-        assert w["keypoints_confidence"][name] is None
-
-
-# ---------------------------------------------------------------------------
-# Numerical-fidelity round-trip
-# ---------------------------------------------------------------------------
-
-
-def test_round_trip_frame_metadata_is_bit_for_bit_equal():
-    payload = _fully_loaded_payload()
-    target = to_target_schema(payload)
-    assert target["frame_id"] == payload["frame_id"]
-    assert target["timestamp"] == payload["timestamp"]
-
-
-def test_round_trip_bbox_xyxy_to_xywh_is_bit_for_bit():
-    payload = _fully_loaded_payload()
-    target = to_target_schema(payload)
-    for w_cur, w_tgt in zip(payload["wheels"], target["wheels"]):
-        x1, y1, x2, y2 = w_cur["wheel_bbox"]
-        assert w_tgt["bbox_xywh"] == [x1, y1, x2 - x1, y2 - y1]
-
-
-def test_round_trip_wheel_confidence_preserved():
-    payload = _fully_loaded_payload()
-    target = to_target_schema(payload)
-    for w_cur, w_tgt in zip(payload["wheels"], target["wheels"]):
-        assert w_tgt["confidence"] == w_cur["confidence"]
-
-
-def test_round_trip_keypoint_fields_map_by_name():
-    """For each (internal_name -> target_name), xy/conf/vis match positionally."""
-    payload = _fully_loaded_payload()
-    target = to_target_schema(payload)
-    for w_cur, w_tgt in zip(payload["wheels"], target["wheels"]):
-        # Build an index by internal name so we can compare positionally
-        # without depending on KEYPOINT_NAMES ordering twice.
-        cur_by_name = {kp["name"]: kp for kp in w_cur["keypoints"]}
-        for internal_name, target_name in INTERNAL_TO_TARGET_KP.items():
-            cur = cur_by_name[internal_name]
-            assert w_tgt["keypoints"][target_name] == cur["xy"]
-            assert w_tgt["keypoints_confidence"][target_name] == cur["confidence"]
-            assert w_tgt["visibility"][target_name] == cur["visibility"]
-
-
-# ---------------------------------------------------------------------------
 # Negative invariants — fields AR will NEVER see
 # ---------------------------------------------------------------------------
 
@@ -410,28 +249,6 @@ def test_current_keypoint_does_not_leak_3d_fields():
             )
 
 
-def test_target_wheel_does_not_leak_3d_or_tracking_fields():
-    target = to_target_schema(_fully_loaded_payload())
-    w = target["wheels"][0]
-    for forbidden in _FORBIDDEN_WHEEL_FIELDS:
-        assert forbidden not in w
-    # Renamed-away field — the target uses `bbox_xywh`, not `wheel_bbox`.
-    assert "wheel_bbox" not in w
-    # `warnings` was an explicit drop in §10.
-    assert "warnings" not in w
-
-
-def test_target_keypoint_groups_do_not_leak_3d_fields():
-    target = to_target_schema(_fully_loaded_payload())
-    w = target["wheels"][0]
-    for name in ("point_a", "point_b", "point_c_disc_bottom"):
-        # The dict values are lists/floats/ints, not nested objects —
-        # but pin the absence of nested 3D info via the parent dict's
-        # value type to make the intent obvious.
-        assert isinstance(w["keypoints"][name], list)
-        assert all(isinstance(v, float) for v in w["keypoints"][name])
-
-
 # ---------------------------------------------------------------------------
 # Visibility = 0 contract — slot is preserved, never dropped
 # ---------------------------------------------------------------------------
@@ -456,27 +273,6 @@ def test_current_keeps_invisible_keypoint_slot():
     # for invisible keypoints. Pin that so a "helpful" refactor doesn't
     # start silently overwriting coordinates.
     assert "xy" in kps[2]
-
-
-def test_target_keeps_invisible_keypoint_slot():
-    det = _wheel(
-        (0, 0, 10, 10),
-        0.9,
-        kp_xys=[(1, 1), (2, 2), (3, 3)],
-        kp_visibilities=[2, 1, 0],
-        kp_confs=[0.9, 0.5, 0.1],
-    )
-    payload = build_ar_payload([det])
-    target = to_target_schema(payload)
-    w = target["wheels"][0]
-    # All three target-named slots present in all three parallel dicts.
-    for group in ("keypoints", "keypoints_confidence", "visibility"):
-        assert set(w[group].keys()) == {
-            "point_a",
-            "point_b",
-            "point_c_disc_bottom",
-        }
-    assert w["visibility"]["point_c_disc_bottom"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -720,27 +516,31 @@ def test_confirmed_frame_id_must_be_present_when_inference_supplies_it():
 
 
 def test_determine_frame_id_uses_explicit_when_provided():
-    from pathlib import Path
-
     from infer_image import determine_frame_id
 
     assert determine_frame_id("frame_0042", Path("foo/bar/sample.jpg")) == "frame_0042"
 
 
 def test_determine_frame_id_falls_back_to_image_stem():
-    from pathlib import Path
-
     from infer_image import determine_frame_id
 
     assert determine_frame_id(None, Path("foo/bar/img_001.jpg")) == "img_001"
 
 
 def test_determine_frame_id_treats_empty_string_as_unset():
-    from pathlib import Path
-
     from infer_image import determine_frame_id
 
     assert determine_frame_id("", Path("baz/image.png")) == "image"
+
+
+def test_determine_frame_id_strict_requires_explicit_value():
+    from infer_image import determine_frame_id
+
+    with pytest.raises(ValueError, match="--frame-id"):
+        determine_frame_id(None, Path("foo/bar/img_001.jpg"), require_explicit=True)
+
+    with pytest.raises(ValueError, match="--frame-id"):
+        determine_frame_id("", Path("foo/bar/img_001.jpg"), require_explicit=True)
 
 
 # ---------------------------------------------------------------------------

@@ -30,7 +30,9 @@ Single label `wheel` with:
   - `kp2` → `disc_bottom`
 
 The point order **is** the contract. The names are working names and may
-shift once `docs/OPEN_QUESTIONS_AR_SPEC.md` §1 / §3 resolve.
+remain legacy strings for converter compatibility. `rim_left` and
+`rim_right` now represent confirmed floor-ray A/B points near the wheel
+footprint, not obsolete edge points.
 
 ### 2.2 Skeleton edges (visual aid only)
 
@@ -40,11 +42,10 @@ effect on the YOLO label format. Use:
 - `rim_left ↔ rim_right`
 - `rim_right ↔ disc_bottom`
 
-**Do not** connect `rim_left ↔ disc_bottom`. That edge has no geometric
-meaning (left rim → disc bottom does not correspond to any AR raycast or
-plane edge). A spurious edge there teaches annotators to think of a
-triangle, which is wrong — kp0 and kp1 share the rim ellipse, kp2 is
-below.
+**Do not** connect `rim_left ↔ disc_bottom`. A and B are floor-ray points
+near the wheel footprint, while C is the lower visible rim/disc point; a
+direct A-to-C edge teaches annotators to think of a triangle on the
+wheel, which is wrong.
 
 ### 2.3 Visibility flag
 
@@ -108,10 +109,11 @@ import (see §6 "Verify when setting up").
 Notes:
 
 - The skeleton above defines the three keypoints and the two edges
-  (rim_left → rim_right, rim_right → disc_bottom). The `wheel_bbox`
-  shape is a separate rectangle label so the bbox and skeleton are
-  drawn as independent shapes — easier for annotators than the
-  combined-shape mode.
+  (rim_left → rim_right, rim_right → disc_bottom). These edges are visual
+  aids only; the legacy names `rim_left` / `rim_right` still mean floor-ray
+  A/B points, not obsolete edge points. The `wheel_bbox` shape is a separate
+  rectangle label so the bbox and skeleton are drawn as independent shapes
+  — easier for annotators than the combined-shape mode.
 - If your CVAT version supports combined skeleton-with-bbox in a single
   shape, prefer that and drop the separate `wheel_bbox` label. Either
   way the export produces the bbox + 3 keypoints needed downstream.

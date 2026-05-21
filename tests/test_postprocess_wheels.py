@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import postprocess_wheels
 from postprocess_wheels import (
-    INTERNAL_TO_TARGET_KP,
     KEYPOINT_NAMES,
     N_KEYPOINTS,
     build_ar_payload,
     to_confirmed_schema,
-    to_target_schema,
+    visibility_from_keypoint_confidence,
 )
 
 
@@ -103,94 +103,16 @@ def test_visibility_passthrough_keeps_occlusion_signal():
     assert vis == [2, 1, 0]
 
 
-# ---------------------------------------------------------------------------
-# Target schema preview (used by infer_image.py --target-schema)
-# ---------------------------------------------------------------------------
+def test_deprecated_target_schema_converter_is_removed():
+    assert not hasattr(postprocess_wheels, "to_target_schema")
+    assert not hasattr(postprocess_wheels, "INTERNAL_TO_TARGET_KP")
 
 
-def test_target_schema_renames_keypoints_to_ar_target_names():
-    det = _wheel(
-        (10, 20, 60, 80),
-        0.93,
-        kp_xys=[(15, 70), (55, 72), (35, 60)],
-        kp_visibilities=[2, 2, 1],
-        kp_confs=[0.91, 0.90, 0.55],
-    )
-    payload = build_ar_payload([det], frame_id="frame_0001", timestamp=123.456)
-    target = to_target_schema(payload)
-
-    assert target["frame_id"] == "frame_0001"
-    assert target["timestamp"] == 123.456
-    assert "wheels" in target
-    w = target["wheels"][0]
-    # Keys are the AR-facing target names, not the internal rim_left/...
-    assert set(w["keypoints"].keys()) == set(INTERNAL_TO_TARGET_KP.values())
-    assert set(w["keypoints"].keys()) == {
-        "point_a",
-        "point_b",
-        "point_c_disc_bottom",
-    }
-
-
-def test_target_schema_converts_bbox_xyxy_to_xywh():
-    det = _wheel((10, 20, 60, 80), 0.93, kp_xys=[(15, 30), (55, 75), (35, 79)])
-    payload = build_ar_payload([det])
-    target = to_target_schema(payload)
-    w = target["wheels"][0]
-    # xywh: x = x1, y = y1, w = x2 - x1, h = y2 - y1
-    assert w["bbox_xywh"] == [10.0, 20.0, 50.0, 60.0]
-
-
-def test_target_schema_separates_xy_confidence_visibility_into_parallel_dicts():
-    det = _wheel(
-        (0, 0, 100, 100),
-        0.9,
-        kp_xys=[(10, 20), (90, 80), (50, 95)],
-        kp_visibilities=[2, 2, 1],
-        kp_confs=[0.95, 0.92, 0.55],
-    )
-    payload = build_ar_payload([det])
-    target = to_target_schema(payload)
-    w = target["wheels"][0]
-
-    # All three dicts use the same target keys
-    keys = ("point_a", "point_b", "point_c_disc_bottom")
-    assert tuple(w["keypoints"].keys()) == keys
-    assert tuple(w["keypoints_confidence"].keys()) == keys
-    assert tuple(w["visibility"].keys()) == keys
-
-    assert w["keypoints"]["point_a"] == [10.0, 20.0]
-    assert w["keypoints_confidence"]["point_a"] == 0.95
-    assert w["visibility"]["point_a"] == 2
-
-    assert w["visibility"]["point_c_disc_bottom"] == 1
-    assert w["keypoints_confidence"]["point_c_disc_bottom"] == 0.55
-
-
-def test_target_schema_drops_image_image_size_thresholds_stats_warnings():
-    det = _wheel((0, 0, 100, 100), 0.9, kp_xys=[(1, 1), (2, 2), (3, 3)])
-    payload = build_ar_payload([det], frame_id="x", timestamp=1.0)
-    payload["image"] = "foo.jpg"
-    payload["image_size"] = [640, 480]
-    payload["thresholds"] = {"conf": 0.25, "iou": 0.45, "max_det": 20}
-    target = to_target_schema(payload)
-    # Top-level: only frame_id, timestamp, wheels
-    assert set(target.keys()) == {"frame_id", "timestamp", "wheels"}
-    # Per-wheel: only bbox_xywh, confidence, keypoints, keypoints_confidence, visibility
-    assert set(target["wheels"][0].keys()) == {
-        "bbox_xywh",
-        "confidence",
-        "keypoints",
-        "keypoints_confidence",
-        "visibility",
-    }
-
-
-def test_target_schema_empty_wheels():
-    payload = build_ar_payload([], frame_id="f", timestamp=0.0)
-    target = to_target_schema(payload)
-    assert target["wheels"] == []
-    assert target["frame_id"] == "f"
+def test_visibility_from_keypoint_confidence_preserves_threshold_boundaries():
+    assert visibility_from_keypoint_confidence(0.5) == 2
+    assert visibility_from_keypoint_confidence(0.499999) == 1
+    assert visibility_from_keypoint_confidence(0.15) == 1
+    assert visibility_from_keypoint_confidence(0.149999) == 0
 
 
 # ---------------------------------------------------------------------------

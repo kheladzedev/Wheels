@@ -4,19 +4,18 @@ Audience: human annotator. You have never seen this project before. Read
 this end to end, then start labelling. Expect ~10 minutes to internalise
 the rules.
 
-> **Pending confirmation.** Final keypoint names and the exact semantics
-> of the bottom point are still open with the AR team
-> (`docs/OPEN_QUESTIONS_AR_SPEC.md` §1, §3). Until that is resolved, use
-> the names in `docs/ANNOTATION_JSON_FORMAT.md`: `rim_left`, `rim_right`,
-> `disc_bottom`. The label *order* and *count* (3 keypoints per wheel) are
-> locked — only the names may shift later. If they shift, the converter
-> renames; no re-annotation needed for naming.
+> **Confirmed contract.** The AR-facing JSON keys are `a`, `b`, and
+> `c_disc_bottom`; the internal annotation labels remain `rim_left`,
+> `rim_right`, and `disc_bottom` only for converter compatibility. Read
+> `docs/KEYPOINT_SPEC.md` and `docs/AR_ML_CONTRACT.md` as the source of
+> truth. The label order and count are locked: three 2D screen-space
+> keypoints per wheel.
 
 ## 1. What gets labelled
 
 | Object | Label? | Notes |
 |---|---|---|
-| Full wheel (tire rubber + metallic rim/disc) visible from outside the car | **Yes** | Single class `wheel`. |
+| Full wheel (tire rubber + visible disc/rim area) visible from outside the car | **Yes** | Single class `wheel`. |
 | Spare wheel mounted on rear door / roof of an SUV or pickup | **No** | Keeps the class semantics clean for AR — spares are not driveable wheels. |
 | Wheel through the cabin window (interior shot through glass) | **No** | Optical distortion, not the use case. |
 | Motorcycle / bicycle / scooter wheel | **No** | Wrong vehicle class. |
@@ -40,33 +39,40 @@ authoritative class table.
 ## 3. The three keypoints
 
 Three keypoints per wheel, in a **fixed order**. The order is the
-contract; the names are working names.
+contract. The `rim_left` / `rim_right` names are legacy internal strings;
+their confirmed meaning is floor-ray A/B points, not obsolete edge points.
 
-| Index | Name | Where to place it |
-|---|---|---|
-| 0 | `rim_left`    | Left-most visible point of the **metallic rim** (the metal disc, **not** the tire rubber). For 3/4 views the visible rim is an ellipse — place the point at the geometric leftmost point of that ellipse. |
-| 1 | `rim_right`   | Right-most visible point of the metallic rim. Ellipse rightmost. |
-| 2 | `disc_bottom` | Physical **lowest** point of the metallic disc. For a perfectly straight-on (side) view, `disc_bottom` may coincide with `rim_right`. For 3/4 views, `disc_bottom` sits **below** `rim_right`. |
+| Index | Internal label | Confirmed JSON key | Where to place it |
+|---|---|---|---|
+| 0 | `rim_left` | `a` | Left screen-space floor-ray point near the wheel footprint/base. Place it on the floor/ground near the left side of the wheel base: **not** on the metal rim, **not** on the tire rubber, **not** on the wheel itself. |
+| 1 | `rim_right` | `b` | Right screen-space floor-ray point near the wheel footprint/base. Place it on the floor/ground near the right side of the wheel base: **not** on the metal rim, **not** on the tire rubber, **not** on the wheel itself. |
+| 2 | `disc_bottom` | `c_disc_bottom` | Lower visible point of the metal rim / disc where the rim meets the tire. |
 
 Definitions are aligned to the AR-team mock pipeline; see
-`docs/KEYPOINT_SPEC.md` for the geometric rationale (two rim points
-constrain a plane via raycast + RANSAC; one disc-bottom point gives
-installation height once the plane is known).
+`docs/KEYPOINT_SPEC.md` for the geometric rationale. ML returns only 2D
+screen-space pixel points. AR raycasts A/B onto the floor, runs RANSAC
+and plane recovery, then uses C for height estimation and 3D
+visualization.
 
-> Earlier iterations used "highest / lowest" of the rim — that wording is
-> stale. The current contract is **left / right** of the metallic rim
-> (kp0, kp1) plus the disc's **physical bottom** (kp2). If the AR team
-> later confirms top/bottom-of-rim semantics, we re-label — see
-> `docs/OPEN_QUESTIONS_AR_SPEC.md` §1.
+> Earlier iterations described `rim_left` / `rim_right` as points on the
+> rim. That wording is obsolete. Under the confirmed contract, kp0 and
+> kp1 are `a` / `b`: floor-ray points near the wheel footprint.
 
 ### Concrete placement rules
 
-- A/B (`rim_left` / `rim_right`) sit on the **metal**, not on the tire
-  rubber. If in doubt, follow the rim's bright outer edge.
-- C (`disc_bottom`) sits on the metal. Do not place it on the tire's
-  bottom (road-contact point), and do not place it at the hub centre.
-- For chrome / highly reflective rims, use the rim's silhouette, not
-  the reflection inside it.
+- A (`rim_left`) belongs on the floor/ground near the left side of the
+  wheel footprint/base. It is a screen pixel that AR raycasts onto the
+  floor plane.
+- B (`rim_right`) belongs on the floor/ground near the right side of the
+  wheel footprint/base. It is also a screen pixel for AR floor raycast.
+- A/B should be near the bottom/footprint area of the wheel, visually
+  below C in normal image coordinates. They are not metal-rim points,
+  tire points, or wheel-surface points.
+- C (`disc_bottom`) sits on the lower visible metal rim / disc boundary
+  where the rim meets the tire. Do not place it on the floor, the tire's
+  road-contact point, or the hub centre.
+- For chrome / highly reflective rims, use the visible physical rim/disc
+  boundary for C, not a reflection inside it.
 
 ## 4. Visibility flags
 
@@ -99,7 +105,7 @@ Use the disc (metal part), not the tire, as the visibility yardstick.
 | Motion-blurred wheel | Skip if you cannot place A/B/C within ~5 px confidence. Otherwise label with best estimate, `visibility = 2`. |
 | Heavy occlusion by fender | If you can infer a keypoint's hidden position, label with `visibility = 1` at the inferred xy. If you cannot, set that keypoint's `visibility = 0`. |
 | Wheel half-clipped at image edge | Label the wheel. Visible keypoints get `visibility = 2`; off-image keypoints get `visibility = 0` (xy ignored). |
-| Reflective / chrome rim | Label normally — the rim outline is what matters, not the reflection. Place A/B on the actual rim silhouette. |
+| Reflective / chrome rim | Label normally. Place C on the visible rim/disc boundary, not on a reflection. A/B still go on the floor/ground near the wheel footprint. |
 | Two wheels overlap (rear-quarter view, far wheel behind near wheel) | Label each wheel as its **own instance**. For the partially-hidden wheel, set keypoints occluded by the other wheel to `visibility = 1` if you can infer their position, else `0`. |
 | Spare wheel on rear door / roof | **Do not** label. |
 | Motorcycle / bicycle / mural / toy / detached wheel | **Do not** label. |
@@ -113,10 +119,10 @@ These must hold for any reasonable orientation. Use them as a sanity
 filter before submitting a wheel:
 
 - `rim_left.x < rim_right.x` in image coordinates.
-- `disc_bottom.y >= max(rim_left.y, rim_right.y)` — bottom is below or
-  level with the rim left/right points (y grows downward).
-- `rim_left` and `rim_right` sit on the **metallic disc**, never on the
-  tire rubber.
+- `disc_bottom.y < min(rim_left.y, rim_right.y)` — C is visually above
+  the floor-ray A/B points because y grows downward.
+- `rim_left` and `rim_right` are near the bottom/footprint area, not on
+  the metal rim, tire rubber, or wheel surface.
 - Keypoints with `visibility = 0` have ignored xy — do not waste time
   placing them precisely.
 
@@ -125,10 +131,16 @@ ranges; per-keypoint geometric checks above are *your* job.
 
 ## 8. Common mistakes to avoid
 
-- Placing `rim_left` / `rim_right` on the tire rubber instead of the
-  metal rim.
+- Placing A/B (`rim_left` / `rim_right`) on the metal rim.
+- Placing A/B on the tire rubber.
+- Placing A/B on the wheel instead of on the floor/ground near the
+  footprint.
+- Confusing the legacy internal names `rim_left` / `rim_right` with the
+  obsolete edge semantics. They now mean floor-ray A/B points.
+- Placing C (`disc_bottom`) on the floor or tire instead of the lower
+  metal rim / disc boundary where the rim meets the tire.
 - Placing `disc_bottom` at the tire's road-contact point (bottom of
-  rubber). It is the bottom of the **metal disc**, not the tire.
+  rubber). It is the lower visible metal rim / disc point, not the tire.
 - Annotating spare wheels on the back door / roof — these are explicitly
   out of scope.
 - Forgetting to mark off-image keypoints as `visibility = 0` (the
@@ -145,6 +157,6 @@ ranges; per-keypoint geometric checks above are *your* job.
   converter consumes (annotators do not write this directly; the export
   tool does).
 - `docs/DATASET_SPEC.md` — on-disk YOLO-pose label format.
-- `docs/OPEN_QUESTIONS_AR_SPEC.md` — items still open with the AR team
-  (final names, disc-bottom semantics, error budget).
+- `docs/AR_ML_CONTRACT.md` — confirmed ML output JSON and AR/ML
+  responsibility split.
 - `docs/ANNOTATION_TOOLING.md` — project setup in the labelling tool.

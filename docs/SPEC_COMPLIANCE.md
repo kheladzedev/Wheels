@@ -107,10 +107,9 @@ Status (post 2026-05-14 schema-drift fix):
   `--confirmed-schema` flag is a no-op alias.
 - `src/infer_batch.py` writes the **confirmed AR schema** as the primary
   `<stem>__frame_XXX.json`; legacy intermediate is
-  `<stem>__frame_XXX_legacy.json` when `--emit-legacy` is passed
-  (`--target-schema` is a deprecated alias for the same). The historic
-  pre-confirmed "target" draft schema is no longer emitted by either
-  entry point.
+  `<stem>__frame_XXX_legacy.json` when `--emit-legacy` is passed. The
+  historic pre-confirmed "target" draft schema and `--target-schema`
+  flag are no longer emitted or accepted by either entry point.
 
 ## How to use this document
 

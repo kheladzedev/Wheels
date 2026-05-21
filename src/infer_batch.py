@@ -24,7 +24,7 @@ Schema policy (mirrors ``infer_image.py``):
   per-keypoint visibility, warnings, stats, image meta) is written
   only when ``--emit-legacy`` is passed, with a ``_legacy.json``
   suffix. The historic pre-confirmed "target" draft schema is no
-  longer written by this script.
+  longer accepted or written by this script.
 
 Usage:
     python src/infer_batch.py \\
@@ -60,8 +60,10 @@ from typing import Literal
 
 from postprocess_wheels import (
     N_KEYPOINTS,
+    assert_confirmed_no_forbidden_fields,
     build_ar_payload,
     to_confirmed_schema,
+    visibility_from_keypoint_confidence,
 )
 
 # Keys that must NEVER appear in the confirmed-schema payload that AR
@@ -80,6 +82,7 @@ CONFIRMED_FORBIDDEN_WHEEL_KEYS = (
     "bbox_xywh",
     "keypoints",
     "keypoints_confidence",
+    "points_confidence",
     "visibility",
     "warnings",
     "track_id",
@@ -206,7 +209,7 @@ def extract_keypoints(box_idx: int, result) -> list[dict]:
     kps: list[dict] = []
     for i in range(xy.shape[0]):
         c = float(conf[i])
-        vis = 2 if c >= 0.5 else (1 if c >= 0.15 else 0)
+        vis = visibility_from_keypoint_confidence(c)
         kps.append(
             {
                 "xy": [float(xy[i, 0]), float(xy[i, 1])],
@@ -325,15 +328,6 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     p.add_argument(
-        "--target-schema",
-        action="store_true",
-        help=(
-            "DEPRECATED alias for --emit-legacy. The old pre-confirmed "
-            "'target' draft schema is no longer written; this flag now "
-            "writes the legacy intermediate payload as a debug companion."
-        ),
-    )
-    p.add_argument(
         "--fps",
         type=float,
         default=None,
@@ -358,6 +352,7 @@ def _assert_no_forbidden(confirmed: dict, source_label: str) -> None:
     introduced by upstream changes to ``to_confirmed_schema`` or to this
     script. The guards mirror infer_image.py.
     """
+    assert_confirmed_no_forbidden_fields(confirmed, source_label=source_label)
     leaked_top = [k for k in CONFIRMED_FORBIDDEN_TOP_LEVEL if k in confirmed]
     if leaked_top:
         raise AssertionError(
@@ -456,7 +451,7 @@ def _run_directory(
     frames_inferred = 0
     wheels_detected_total = 0
     frame_index_list: list[dict] = []
-    want_legacy = bool(args.emit_legacy or args.target_schema)
+    want_legacy = bool(args.emit_legacy)
 
     jsonl_fh = None
     jsonl_legacy_fh = None
@@ -577,7 +572,7 @@ def _run_video(
     frames_inferred = 0
     wheels_detected_total = 0
     frame_index_list: list[dict] = []
-    want_legacy = bool(args.emit_legacy or args.target_schema)
+    want_legacy = bool(args.emit_legacy)
 
     jsonl_fh = None
     jsonl_legacy_fh = None
@@ -744,7 +739,7 @@ def main() -> None:
         "thresholds": {"conf": args.conf, "iou": args.iou, "max_det": args.max_det},
         "output_mode": "combined_jsonl" if args.combined_jsonl else "per_frame",
         "primary_schema": "confirmed",
-        "legacy_companion_emitted": bool(args.emit_legacy or args.target_schema),
+        "legacy_companion_emitted": bool(args.emit_legacy),
         "frame_index": stats["frame_index"],
     }
     summary_path = args.out_dir / "batch_summary.json"
