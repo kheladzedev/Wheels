@@ -16,9 +16,8 @@ Newer trial exports may also include ``LeftTop`` and ``RightTop``.
 The Unreal Blueprint actor names from Igor's documentation
 (``SphereLeft``, ``SphereRight``, ``SphereLeftTop``, ``SphereRightTop``)
 are accepted as aliases and normalized before import.
-Those are optional bbox helper points; when both are present, non-zero,
-and inside the image, the importer builds a tighter full-wheel bbox
-from all five points instead of using the older A/B/C-only heuristic.
+Those are optional bbox helper points for the explicit debug fallback.
+Training intake expects a real plugin-provided ``BBox`` / ``WheelBBox``.
 
 Drop policy::
 
@@ -28,10 +27,12 @@ Drop policy::
     - object dropped if any required point is outside the image bounds
     - object dropped if the keyPoint .txt cannot be parsed
 
-``bbox_xyxy`` is computed from ``Right/Left/Center/LeftTop/RightTop`` when
-the optional top helper points are present and valid. Otherwise it falls
-back to the older A/B/C floor-ray heuristic. If clipping collapses the
-bbox to zero area, the object is dropped.
+``bbox_xyxy`` is read directly from ``BBox`` / ``WheelBBox`` when present.
+If no plugin bbox exists, the object is dropped by default. The older
+``Right/Left/Center/LeftTop/RightTop`` and A/B/C bbox heuristics remain
+available only behind ``--allow-synthetic-bbox`` for debug/provisional
+intake. If clipping collapses a synthetic fallback bbox to zero area, the
+object is dropped.
 
 Outputs the on-disk contract in ``docs/KEYPOINT_DATASET_FORMAT.md``::
 
@@ -59,6 +60,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
+import re
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -78,12 +80,27 @@ import inspect_unreal_export as ix  # noqa: E402
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 DEFAULT_MARGIN_PX = 80
 OPTIONAL_BBOX_POINT_NAMES = ("LeftTop", "RightTop")
+BBOX_POINT_NAMES = ("BBox", "WheelBBox")
 RAW_POINT_ALIASES = {
     "SphereRight": "Right",
     "SphereLeft": "Left",
     "SphereRightTop": "RightTop",
     "SphereLeftTop": "LeftTop",
 }
+BBOX_SOURCE_PLUGIN = "plugin_provided"
+BBOX_SOURCE_SYNTHESIZED = "synthesized_by_adapter"
+
+_NUM_RE = r"-?\d+(?:\.\d+)?"
+PLUGIN_BBOX_UNREAL_RE = re.compile(
+    rf'name\s*:\s*"({"|".join(BBOX_POINT_NAMES)})"\s*,\s*'
+    rf"XYXY\s*:\s*({_NUM_RE})\s*,\s*({_NUM_RE})\s*,\s*"
+    rf"({_NUM_RE})\s*,\s*({_NUM_RE})"
+)
+PLUGIN_BBOX_SIMPLE_RE = re.compile(
+    rf"^\s*({'|'.join(BBOX_POINT_NAMES)})\s*:"
+    rf"\s*({_NUM_RE})\s*,\s*({_NUM_RE})\s*,\s*({_NUM_RE})\s*,\s*({_NUM_RE})\s*$",
+    re.MULTILINE,
+)
 
 RIGHT_LEFT_MAPPING_AUTO = "auto"
 RIGHT_LEFT_MAPPING_CONFIRMED = "confirmed"
@@ -95,6 +112,7 @@ DROP_MISSING_POINTS = "missing_points"
 DROP_PARSE_ERROR = "parse_error"
 DROP_INVALID_BBOX = "invalid_bbox_after_clip"
 DROP_BAD_GEOMETRY = "bad_floorray_geometry"
+DROP_MISSING_BBOX = "missing_bbox"
 
 DROP_REASONS: tuple[str, ...] = (
     DROP_ALL_ZERO,
@@ -103,6 +121,7 @@ DROP_REASONS: tuple[str, ...] = (
     DROP_PARSE_ERROR,
     DROP_INVALID_BBOX,
     DROP_BAD_GEOMETRY,
+    DROP_MISSING_BBOX,
 )
 
 MIN_FLOOR_RAY_REL_Y = 0.80
@@ -121,6 +140,12 @@ class ImportSummary:
     valid_wheels: int = 0
     bbox_from_top_points: int = 0
     bbox_from_floorray: int = 0
+    bbox_source_counts: dict[str, int] = field(
+        default_factory=lambda: {
+            BBOX_SOURCE_PLUGIN: 0,
+            BBOX_SOURCE_SYNTHESIZED: 0,
+        }
+    )
     drop_counts: dict[str, int] = field(
         default_factory=lambda: {k: 0 for k in DROP_REASONS}
     )
@@ -168,6 +193,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "Alias for --right-left-mapping screen-sides. Kept for the 0003 "
             "diagnostic workflow."
+        ),
+    )
+    p.add_argument(
+        "--allow-synthetic-bbox",
+        action="store_true",
+        help=(
+            "DEBUG ONLY: synthesize bbox from LeftTop/RightTop or A/B/C when "
+            "raw BBox/WheelBBox is missing. Without this flag, missing raw "
+            "bbox drops the object."
         ),
     )
     return p.parse_args(argv)
@@ -294,6 +328,24 @@ def build_bbox_from_optional_top_points(
     return x1, y1, x2, y2
 
 
+def parse_plugin_bbox_text(text: str) -> Optional[tuple[float, float, float, float]]:
+    """Parse object-level ``BBox`` / ``WheelBBox`` in supported raw formats."""
+    m = PLUGIN_BBOX_UNREAL_RE.search(text)
+    if m is None:
+        m = PLUGIN_BBOX_SIMPLE_RE.search(text)
+    if m is None:
+        return None
+    try:
+        return tuple(float(m.group(i)) for i in range(2, 6))  # type: ignore[return-value]
+    except ValueError:
+        return None
+
+
+def _plugin_bbox_valid(bbox: tuple[float, float, float, float]) -> bool:
+    x1, y1, x2, y2 = bbox
+    return x1 < x2 and y1 < y2
+
+
 def _floorray_geometry_ok(
     bbox: tuple[float, float, float, float],
     a: tuple[float, float],
@@ -414,6 +466,7 @@ def _try_build_wheel(
     margin: int,
     summary: ImportSummary,
     right_left_mapping: str = RIGHT_LEFT_MAPPING_CONFIRMED,
+    allow_synthetic_bbox: bool = False,
 ) -> Optional[dict]:
     """Parse one keyPoint .txt body and emit the wheel dict if valid.
 
@@ -459,10 +512,24 @@ def _try_build_wheel(
         a = right
         b = left
     center = pts["Center"]
-    bbox = build_bbox_from_optional_top_points(pts, image_w, image_h)
-    bbox_strategy = "top_points"
+
+    bbox = parse_plugin_bbox_text(text)
+    bbox_source = BBOX_SOURCE_PLUGIN
+    bbox_strategy = "plugin_provided"
+    if bbox is not None and not _plugin_bbox_valid(bbox):
+        _drop(summary, DROP_INVALID_BBOX)
+        return None
+    if bbox is None and not allow_synthetic_bbox:
+        _drop(summary, DROP_MISSING_BBOX)
+        return None
+
     if bbox is None:
+        bbox = build_bbox_from_optional_top_points(pts, image_w, image_h)
+        bbox_source = BBOX_SOURCE_SYNTHESIZED
+        bbox_strategy = "top_points"
+    if bbox is None and allow_synthetic_bbox:
         bbox_strategy = "floorray"
+        bbox_source = BBOX_SOURCE_SYNTHESIZED
         bbox = build_bbox_from_floorray_points(
             a,
             b,
@@ -477,9 +544,13 @@ def _try_build_wheel(
     if not _floorray_geometry_ok(bbox, a, b, center):
         _drop(summary, DROP_BAD_GEOMETRY)
         return None
-    if bbox_strategy == "top_points":
+    if bbox_source == BBOX_SOURCE_PLUGIN:
+        summary.bbox_source_counts[BBOX_SOURCE_PLUGIN] += 1
+    elif bbox_strategy == "top_points":
+        summary.bbox_source_counts[BBOX_SOURCE_SYNTHESIZED] += 1
         summary.bbox_from_top_points += 1
     else:
+        summary.bbox_source_counts[BBOX_SOURCE_SYNTHESIZED] += 1
         summary.bbox_from_floorray += 1
 
     return {
@@ -561,6 +632,7 @@ def run(args: argparse.Namespace) -> int:
                     args.margin,
                     summary,
                     right_left_mapping=args.right_left_mapping_resolved,
+                    allow_synthetic_bbox=args.allow_synthetic_bbox,
                 )
                 if wheel is not None:
                     wheels.append(wheel)
@@ -636,6 +708,13 @@ def _write_metadata(
         "SphereRightTop": "bbox helper when present",
         "SphereLeftTop": "bbox helper when present",
     }
+    plugin_bbox_count = summary.bbox_source_counts.get(BBOX_SOURCE_PLUGIN, 0)
+    synthesized_bbox_count = summary.bbox_source_counts.get(BBOX_SOURCE_SYNTHESIZED, 0)
+    bbox_source = (
+        BBOX_SOURCE_PLUGIN
+        if plugin_bbox_count > 0 and synthesized_bbox_count == 0
+        else BBOX_SOURCE_SYNTHESIZED
+    )
     source_info = {
         "source_name": source_name,
         "source_format": "raw_unreal_plugin_export",
@@ -644,24 +723,29 @@ def _write_metadata(
         "imported_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
         "mapping": mapping,
         "raw_point_aliases": RAW_POINT_ALIASES,
-        "mapping_basis": mapping_basis,
+        "mapping_basis": "plugin_author_confirmation",
+        "right_left_mapping_basis": mapping_basis,
         "mapping_mode": resolved_mapping,
         "right_left_mapping_requested": requested_mapping,
         "right_left_mapping_resolved": resolved_mapping,
         "right_left_mapping_counts": mapping_counts,
         "diagnostic_swap_right_left": resolved_mapping
         == RIGHT_LEFT_MAPPING_SCREEN_SIDES,
+        "bbox_source": bbox_source,
+        "bbox_source_counts": summary.bbox_source_counts,
+        "allow_synthetic_bbox": args.allow_synthetic_bbox,
         "bbox_strategy": (
-            "if LeftTop/RightTop are present and in-bounds, bbox is min/max "
-            "over Right/Left/Center/LeftTop/RightTop; otherwise estimated "
-            "full-wheel bbox from A/B floor anchors and C disc-bottom, "
-            f"minimum side {args.margin}px, clipped to image bounds"
+            "plugin-provided BBox/WheelBBox is used directly when present; "
+            "synthetic adapter bbox from LeftTop/RightTop or A/B/C floor-ray "
+            "geometry is available only with --allow-synthetic-bbox"
         ),
         "drop_policy": (
             "drop wheel if any required point is (0,0), missing, or outside "
-            "image bounds; if the clipped bbox has zero area; or if A/B/C fail "
-            "the floor-ray geometry gate"
+            "image bounds; if raw BBox/WheelBBox is missing and "
+            "--allow-synthetic-bbox is not set; if bbox has invalid order; "
+            "or if A/B/C fail the floor-ray geometry gate"
         ),
+        "training_approved": False,
         "not_yet_training_approved": True,
         "requires_human_preview": True,
         "image_count": summary.images_imported,
@@ -684,20 +768,52 @@ def _write_metadata(
         "right_left_mapping_counts": mapping_counts,
         "diagnostic_swap_right_left": resolved_mapping
         == RIGHT_LEFT_MAPPING_SCREEN_SIDES,
+        "bbox_source": bbox_source,
+        "bbox_source_counts": summary.bbox_source_counts,
+        "allow_synthetic_bbox": args.allow_synthetic_bbox,
         "images_found": summary.images_found,
         "images_imported": summary.images_imported,
+        "keypoint_files_found": summary.keypoint_object_files_found,
         "keypoint_object_files_found": summary.keypoint_object_files_found,
         "valid_wheels": summary.valid_wheels,
         "bbox_strategy_counts": {
             "top_points": summary.bbox_from_top_points,
             "floorray": summary.bbox_from_floorray,
         },
+        "dropped_all_zero": summary.drop_counts.get(DROP_ALL_ZERO, 0),
+        "dropped_out_of_bounds": summary.drop_counts.get(DROP_OUT_OF_BOUNDS, 0),
+        "dropped_missing_points": summary.drop_counts.get(DROP_MISSING_POINTS, 0),
+        "dropped_missing_bbox": summary.drop_counts.get(DROP_MISSING_BBOX, 0),
         "drop_counts": summary.drop_counts,
         "ground_meta_parsed": summary.ground_meta_parsed,
         "ground_meta": summary.ground_meta,
     }
     (out_root / "metadata" / "import_report.json").write_text(
         json.dumps(import_report, indent=2), encoding="utf-8"
+    )
+
+    acceptance_status = {
+        "status": "DEBUG_ONLY",
+        "recommendation": "ACCEPT_ONLY_AS_DEBUG",
+        "reason": (
+            "Plugin-provided BBox/WheelBBox was imported, but the batch still "
+            "requires human preview before training."
+            if bbox_source == BBOX_SOURCE_PLUGIN
+            else "Synthetic bbox fallback was used or no plugin bbox was "
+            "imported; this batch is debug/provisional only."
+        ),
+        "training_allowed": False,
+        "training_approved": False,
+        "human_accepted": False,
+        "requires_plugin_bbox": bbox_source != BBOX_SOURCE_PLUGIN,
+        "requires_human_preview": True,
+        "bbox_source": bbox_source,
+        "bbox_source_counts": summary.bbox_source_counts,
+        "drop_counts": summary.drop_counts,
+        "valid_wheels": summary.valid_wheels,
+    }
+    (out_root / "metadata" / "acceptance_status.json").write_text(
+        json.dumps(acceptance_status, indent=2), encoding="utf-8"
     )
 
 
@@ -709,6 +825,9 @@ def _print_summary(summary: ImportSummary, args: argparse.Namespace) -> None:
     print(f"Right/Left mapping resolved:   {args.right_left_mapping_resolved}")
     print(f"Right/Left mapping basis:      {args.right_left_mapping_basis}")
     print(f"Valid wheels written:          {summary.valid_wheels}")
+    print("BBox sources:")
+    for k in (BBOX_SOURCE_PLUGIN, BBOX_SOURCE_SYNTHESIZED):
+        print(f"  {k}:              {summary.bbox_source_counts.get(k, 0)}")
     print("BBox strategies:")
     print(f"  top_points:                  {summary.bbox_from_top_points}")
     print(f"  floorray:                    {summary.bbox_from_floorray}")

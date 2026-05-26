@@ -1,8 +1,8 @@
 """Custom production model pipeline (MobileNetV2-skipless wheel pose detector).
 
 Scope of this subpackage: direct torch/torchvision imports are allowed
-here per the dependency rule in CLAUDE.md. Outside `src/models/` the
-project remains ultralytics-only.
+here per the repository dependency rule. Outside `src/models/` the project
+remains ultralytics-only.
 
 The model architecture, loss design, and training recipe are specified
 in `docs/MODEL_ARCHITECTURE_PROPOSAL.md` (§2-§3). This module is the

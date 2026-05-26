@@ -135,6 +135,25 @@ def _kp_text_with_top(right, left, center, left_top, right_top) -> str:
     )
 
 
+def _kp_text_with_bbox(right, left, center, bbox, name="BBox") -> str:
+    return (
+        "{\n"
+        f'{{name:"Right",XY:{right[0]},{right[1]}\n}},\n'
+        f'{{name:"Left",XY:{left[0]},{left[1]}\n}},\n'
+        f'{{name:"Center",XY:{center[0]},{center[1]}\n}},\n'
+        f'{{name:"{name}",XYXY:{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}\n}}\n}}'
+    )
+
+
+def _kp_text_with_simple_bbox(right, left, center, bbox, name="WheelBBox") -> str:
+    return (
+        f"Right: {right[0]},{right[1]}\n"
+        f"Left: {left[0]},{left[1]}\n"
+        f"Center: {center[0]},{center[1]}\n"
+        f"{name}: {bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}\n"
+    )
+
+
 def _kp_text_with_sphere_aliases(right, left, center, left_top, right_top) -> str:
     return (
         "{\n"
@@ -154,6 +173,7 @@ def test_try_build_wheel_valid():
         2048,
         80,
         summary,
+        allow_synthetic_bbox=True,
     )
     assert wheel is not None
     assert wheel["points"]["a"] == [100.0, 420.0]
@@ -178,6 +198,7 @@ def test_try_build_wheel_prefers_optional_top_point_bbox():
         480,
         80,
         summary,
+        allow_synthetic_bbox=True,
     )
     assert wheel is not None
     assert wheel["bbox_xyxy"] == pytest.approx([90.0, 120.0, 310.0, 420.0])
@@ -200,6 +221,7 @@ def test_try_build_wheel_accepts_sphere_aliases_from_blueprint_docs():
         480,
         80,
         summary,
+        allow_synthetic_bbox=True,
     )
     assert wheel is not None
     assert wheel["points"]["a"] == [100.0, 420.0]
@@ -220,7 +242,9 @@ def test_try_build_wheel_can_diagnose_swapped_right_left():
     )
 
     normal_summary = imp.ImportSummary()
-    normal = imp._try_build_wheel(text, 640, 480, 80, normal_summary)
+    normal = imp._try_build_wheel(
+        text, 640, 480, 80, normal_summary, allow_synthetic_bbox=True
+    )
     assert normal is None
     assert normal_summary.drop_counts[imp.DROP_BAD_GEOMETRY] == 1
 
@@ -232,6 +256,7 @@ def test_try_build_wheel_can_diagnose_swapped_right_left():
         80,
         swapped_summary,
         right_left_mapping=imp.RIGHT_LEFT_MAPPING_SCREEN_SIDES,
+        allow_synthetic_bbox=True,
     )
     assert swapped is not None
     assert swapped["points"]["a"] == [100.0, 420.0]
@@ -239,6 +264,101 @@ def test_try_build_wheel_can_diagnose_swapped_right_left():
     assert swapped["points"]["c_disc_bottom"] == [200.0, 330.0]
     assert swapped_summary.bbox_from_top_points == 1
     assert all(v == 0 for v in swapped_summary.drop_counts.values())
+
+
+def test_try_build_wheel_uses_plugin_bbox_unreal_xyxy_by_default():
+    summary = imp.ImportSummary()
+    wheel = imp._try_build_wheel(
+        _kp_text_with_bbox(
+            (100.0, 420.0),
+            (300.0, 420.0),
+            (200.0, 330.0),
+            (80.0, 110.0, 330.0, 450.0),
+            name="BBox",
+        ),
+        640,
+        480,
+        80,
+        summary,
+    )
+    assert wheel is not None
+    assert wheel["bbox_xyxy"] == pytest.approx([80.0, 110.0, 330.0, 450.0])
+    assert summary.bbox_source_counts == {
+        "plugin_provided": 1,
+        "synthesized_by_adapter": 0,
+    }
+    assert summary.bbox_from_top_points == 0
+    assert summary.bbox_from_floorray == 0
+
+
+def test_try_build_wheel_uses_plugin_wheelbbox_simple_xyxy_by_default():
+    summary = imp.ImportSummary()
+    wheel = imp._try_build_wheel(
+        _kp_text_with_simple_bbox(
+            (100.0, 420.0),
+            (300.0, 420.0),
+            (200.0, 330.0),
+            (80.0, 110.0, 330.0, 450.0),
+            name="WheelBBox",
+        ),
+        640,
+        480,
+        80,
+        summary,
+    )
+    assert wheel is not None
+    assert wheel["bbox_xyxy"] == pytest.approx([80.0, 110.0, 330.0, 450.0])
+    assert summary.bbox_source_counts["plugin_provided"] == 1
+
+
+def test_try_build_wheel_does_not_call_synthetic_bbox_when_plugin_bbox_exists(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def fail_synthetic(*_args, **_kwargs):
+        raise AssertionError("synthetic bbox builder should not be called")
+
+    monkeypatch.setattr(imp, "build_bbox_from_optional_top_points", fail_synthetic)
+    monkeypatch.setattr(imp, "build_bbox_from_floorray_points", fail_synthetic)
+
+    summary = imp.ImportSummary()
+    wheel = imp._try_build_wheel(
+        _kp_text_with_bbox(
+            (100.0, 420.0),
+            (300.0, 420.0),
+            (200.0, 330.0),
+            (80.0, 110.0, 330.0, 450.0),
+        ),
+        640,
+        480,
+        80,
+        summary,
+    )
+    assert wheel is not None
+    assert wheel["bbox_xyxy"] == pytest.approx([80.0, 110.0, 330.0, 450.0])
+    assert summary.bbox_source_counts["plugin_provided"] == 1
+
+
+def test_try_build_wheel_drops_missing_bbox_without_explicit_synthetic_flag():
+    summary = imp.ImportSummary()
+    wheel = imp._try_build_wheel(
+        _kp_text_with_top(
+            (100.0, 420.0),
+            (300.0, 420.0),
+            (200.0, 330.0),
+            (310.0, 120.0),
+            (90.0, 120.0),
+        ),
+        640,
+        480,
+        80,
+        summary,
+    )
+    assert wheel is None
+    assert summary.drop_counts[imp.DROP_MISSING_BBOX] == 1
+    assert summary.bbox_source_counts == {
+        "plugin_provided": 0,
+        "synthesized_by_adapter": 0,
+    }
 
 
 def test_try_build_wheel_drops_all_zero():
@@ -249,6 +369,7 @@ def test_try_build_wheel_drops_all_zero():
         2048,
         80,
         summary,
+        allow_synthetic_bbox=True,
     )
     assert wheel is None
     assert summary.drop_counts[imp.DROP_ALL_ZERO] == 1
@@ -264,6 +385,7 @@ def test_try_build_wheel_drops_partial_zero_as_out_of_bounds():
         2048,
         80,
         summary,
+        allow_synthetic_bbox=True,
     )
     assert wheel is None
     assert summary.drop_counts[imp.DROP_OUT_OF_BOUNDS] == 1
@@ -317,6 +439,7 @@ def test_try_build_wheel_points_inside_built_bbox():
         2048,
         80,
         summary,
+        allow_synthetic_bbox=True,
     )
     assert wheel is not None
     x1, y1, x2, y2 = wheel["bbox_xyxy"]
@@ -333,6 +456,10 @@ def _write_kp(path: Path, right, left, center):
 
 def _write_kp_with_top(path: Path, right, left, center, left_top, right_top):
     path.write_text(_kp_text_with_top(right, left, center, left_top, right_top))
+
+
+def _write_kp_with_bbox(path: Path, right, left, center, bbox, name="BBox"):
+    path.write_text(_kp_text_with_bbox(right, left, center, bbox, name=name))
 
 
 def _write_kp_with_sphere_aliases(
@@ -392,6 +519,22 @@ def _build_fake_swapped_export(root: Path):
     )
 
 
+def _build_fake_plugin_bbox_export(root: Path):
+    (root / "Images").mkdir(parents=True)
+    (root / "Ground").mkdir(parents=True)
+    (root / "keyPoint" / "0").mkdir(parents=True)
+    img = np.ones((480, 640, 3), dtype=np.uint8) * 200
+    cv2.imwrite(str(root / "Images/0.jpg"), img)
+    _write_kp_with_bbox(
+        root / "keyPoint/0/0.txt",
+        (100.0, 420.0),
+        (300.0, 420.0),
+        (200.0, 330.0),
+        (80.0, 110.0, 330.0, 450.0),
+        name="WheelBBox",
+    )
+
+
 def _build_fake_sphere_alias_export(root: Path):
     (root / "Images").mkdir(parents=True)
     (root / "Ground").mkdir(parents=True)
@@ -421,6 +564,7 @@ def test_import_end_to_end(tmp_path: Path):
             "--out-root",
             str(out_root),
             "--overwrite",
+            "--allow-synthetic-bbox",
         ]
     )
     rc = imp.run(args)
@@ -453,6 +597,16 @@ def test_import_end_to_end(tmp_path: Path):
     assert report["images_imported"] == 4
     assert report["valid_wheels"] == 1
     assert report["bbox_strategy_counts"] == {"top_points": 0, "floorray": 1}
+    assert report["bbox_source"] == "synthesized_by_adapter"
+    assert report["bbox_source_counts"] == {
+        "plugin_provided": 0,
+        "synthesized_by_adapter": 1,
+    }
+    assert report["keypoint_files_found"] == 4
+    assert report["dropped_all_zero"] == 1
+    assert report["dropped_out_of_bounds"] == 1
+    assert report["dropped_missing_points"] == 1
+    assert report["dropped_missing_bbox"] == 0
     assert report["drop_counts"][imp.DROP_ALL_ZERO] == 1
     assert report["drop_counts"][imp.DROP_OUT_OF_BOUNDS] == 1
     assert report["drop_counts"][imp.DROP_MISSING_POINTS] == 1
@@ -479,11 +633,108 @@ def test_import_end_to_end(tmp_path: Path):
         "SphereRightTop": "RightTop",
         "SphereLeftTop": "LeftTop",
     }
-    assert src_info["mapping_basis"] == "auto_screen_x_majority"
+    assert src_info["mapping_basis"] == "plugin_author_confirmation"
+    assert src_info["right_left_mapping_basis"] == "auto_screen_x_majority"
     assert src_info["right_left_mapping_requested"] == "auto"
     assert src_info["right_left_mapping_resolved"] == "confirmed"
+    assert src_info["bbox_source"] == "synthesized_by_adapter"
+    assert src_info["training_approved"] is False
     assert src_info["not_yet_training_approved"] is True
     assert src_info["requires_human_preview"] is True
+
+
+def test_import_end_to_end_uses_plugin_bbox_without_synthetic_flag(tmp_path: Path):
+    src = tmp_path / "export"
+    src.mkdir()
+    _build_fake_plugin_bbox_export(src)
+
+    out_root = tmp_path / "out"
+    args = imp.parse_args(
+        [
+            "--source-root",
+            str(src),
+            "--out-root",
+            str(out_root),
+            "--overwrite",
+        ]
+    )
+    rc = imp.run(args)
+    assert rc == 0
+
+    a0 = json.loads((out_root / "annotations/0.json").read_text())
+    assert len(a0["wheels"]) == 1
+    assert a0["wheels"][0]["bbox_xyxy"] == pytest.approx(
+        [80.0, 110.0, 330.0, 450.0]
+    )
+
+    report = json.loads((out_root / "metadata/import_report.json").read_text())
+    assert report["valid_wheels"] == 1
+    assert report["bbox_source"] == "plugin_provided"
+    assert report["bbox_source_counts"] == {
+        "plugin_provided": 1,
+        "synthesized_by_adapter": 0,
+    }
+    assert report["bbox_strategy_counts"] == {"top_points": 0, "floorray": 0}
+    assert report["dropped_missing_bbox"] == 0
+
+    src_info = json.loads((out_root / "metadata/source_info.json").read_text())
+    assert src_info["bbox_source"] == "plugin_provided"
+    assert src_info["mapping_basis"] == "plugin_author_confirmation"
+    assert src_info["training_approved"] is False
+    assert src_info["requires_human_preview"] is True
+
+    acceptance = json.loads(
+        (out_root / "metadata/acceptance_status.json").read_text()
+    )
+    assert acceptance["status"] == "DEBUG_ONLY"
+    assert acceptance["recommendation"] == "ACCEPT_ONLY_AS_DEBUG"
+    assert acceptance["training_allowed"] is False
+    assert acceptance["training_approved"] is False
+    assert acceptance["requires_human_preview"] is True
+    assert acceptance["bbox_source"] == "plugin_provided"
+
+
+def test_import_end_to_end_missing_bbox_stays_debug_only_without_fallback(
+    tmp_path: Path,
+):
+    src = tmp_path / "export"
+    src.mkdir()
+    _build_fake_export(src)
+
+    out_root = tmp_path / "out"
+    args = imp.parse_args(
+        [
+            "--source-root",
+            str(src),
+            "--out-root",
+            str(out_root),
+            "--overwrite",
+        ]
+    )
+    rc = imp.run(args)
+    assert rc == 0
+
+    report = json.loads((out_root / "metadata/import_report.json").read_text())
+    assert report["valid_wheels"] == 0
+    assert report["bbox_source"] == "synthesized_by_adapter"
+    assert report["bbox_source_counts"] == {
+        "plugin_provided": 0,
+        "synthesized_by_adapter": 0,
+    }
+    assert report["dropped_missing_bbox"] == 1
+    assert report["drop_counts"][imp.DROP_MISSING_BBOX] == 1
+
+    src_info = json.loads((out_root / "metadata/source_info.json").read_text())
+    assert src_info["bbox_source"] == "synthesized_by_adapter"
+    assert src_info["allow_synthetic_bbox"] is False
+    assert src_info["training_approved"] is False
+
+    acceptance = json.loads(
+        (out_root / "metadata/acceptance_status.json").read_text()
+    )
+    assert acceptance["status"] == "DEBUG_ONLY"
+    assert acceptance["requires_plugin_bbox"] is True
+    assert acceptance["training_allowed"] is False
 
 
 def test_import_end_to_end_accepts_sphere_aliases_from_blueprint_docs(
@@ -501,6 +752,7 @@ def test_import_end_to_end_accepts_sphere_aliases_from_blueprint_docs(
             "--out-root",
             str(out_root),
             "--overwrite",
+            "--allow-synthetic-bbox",
         ]
     )
     rc = imp.run(args)
@@ -536,6 +788,7 @@ def test_import_end_to_end_with_diagnostic_right_left_swap(tmp_path: Path):
             str(out_root),
             "--overwrite",
             "--swap-right-left",
+            "--allow-synthetic-bbox",
         ]
     )
     rc = imp.run(args)
@@ -556,7 +809,8 @@ def test_import_end_to_end_with_diagnostic_right_left_swap(tmp_path: Path):
 
     src_info = json.loads((out_root / "metadata/source_info.json").read_text())
     assert src_info["diagnostic_swap_right_left"] is True
-    assert src_info["mapping_basis"] == "diagnostic_swap_right_left"
+    assert src_info["mapping_basis"] == "plugin_author_confirmation"
+    assert src_info["right_left_mapping_basis"] == "diagnostic_swap_right_left"
     assert src_info["mapping"]["Left"] == "a"
     assert src_info["mapping"]["Right"] == "b"
     assert src_info["mapping"]["SphereLeft"] == "a"
@@ -589,7 +843,14 @@ def test_passes_check_keypoint_incoming_validator(tmp_path: Path):
     out_root = tmp_path / "out"
 
     args = imp.parse_args(
-        ["--source-root", str(src), "--out-root", str(out_root), "--overwrite"]
+        [
+            "--source-root",
+            str(src),
+            "--out-root",
+            str(out_root),
+            "--overwrite",
+            "--allow-synthetic-bbox",
+        ]
     )
     assert imp.run(args) == 0
 

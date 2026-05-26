@@ -60,9 +60,9 @@ Each row maps one PDF requirement to where it lives in the repo.
 | "список найденных колес (может быть несколько)" | `wheels` is a list (zero or more) | `build_ar_payload` returns `{"wheels": [...]}`; pinned by `test_ar_contract.py` |
 | "Сохраняется трансформация камеры в момент захвата кадра" | AR owns transform; ML echoes `frame_id` only in confirmed JSON | `src/infer_image.py`; `src/infer_batch.py`; pinned by confirmed-schema tests. `timestamp` exists only in legacy/debug payloads |
 | "Через некоторое время нейросеть возвращает" (async) | Stateless, per-frame inference; no temporal coupling | `docs/AR_ML_CONTRACT.md` → "ML is per-frame and stateless" |
-| "Восстановление позиции … raycast в плоскость пола … положение и ориентация плоскости колеса" | NOT ML | `docs/AR_ML_CONTRACT.md` Out-of-scope section; `CLAUDE.md` "What NOT to do here: don't add 3D / RANSAC / plane fitting" |
+| "Восстановление позиции … raycast в плоскость пола … положение и ориентация плоскости колеса" | NOT ML | `docs/AR_ML_CONTRACT.md` Out-of-scope section |
 | "Процесс повторяется K раз. Накапливаются наблюдения по каждому колесу" | NOT ML; K is AR-side budget | Open question `docs/QUESTIONS_FOR_TEAM.md` (K value not pinned) |
-| "Применяется RANSAC … Удаляются шумы и выбросы … Формируется стабильная плоскость колеса" | NOT ML | `docs/AR_ML_CONTRACT.md` Out-of-scope; `CLAUDE.md` |
+| "Применяется RANSAC … Удаляются шумы и выбросы … Формируется стабильная плоскость колеса" | NOT ML | `docs/AR_ML_CONTRACT.md` Out-of-scope |
 | "нижняя точка диска, полученная от нейросети" | Emit `points.c_disc_bottom` per wheel | `docs/KEYPOINT_SPEC.md`; `src/postprocess_wheels.py::to_confirmed_schema`; eval report key `c_disc_bottom` |
 | "raycast на ранее восстановленную плоскость … значения усредняются" | NOT ML | AR-side disc-height accumulation, documented in `AR_ML_CONTRACT.md` |
 | "временное обозначение … «кубик»" | NOT ML | AR visualisation only |

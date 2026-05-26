@@ -86,6 +86,7 @@ def test_accept_unreal_export_runner_end_to_end(tmp_path: Path) -> None:
             "--preview-count",
             "1",
             "--overwrite",
+            "--allow-synthetic-bbox",
         ]
     )
 
@@ -124,6 +125,7 @@ def test_accept_unreal_export_propagates_diagnostic_swap(tmp_path: Path) -> None
             "1",
             "--overwrite",
             "--swap-right-left",
+            "--allow-synthetic-bbox",
         ]
     )
 
@@ -164,6 +166,7 @@ def test_accept_unreal_export_auto_maps_screen_side_export(tmp_path: Path) -> No
             "--preview-count",
             "1",
             "--overwrite",
+            "--allow-synthetic-bbox",
         ]
     )
 
@@ -194,6 +197,7 @@ def test_accept_unreal_export_can_fail_on_data_quality_gate(tmp_path: Path) -> N
             "1",
             "--overwrite",
             "--fail-on-data-quality-gate",
+            "--allow-synthetic-bbox",
         ]
     )
 

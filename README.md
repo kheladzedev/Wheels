@@ -401,6 +401,26 @@ preview_yolo_pose_labels.py           -> outputs/pose_label_preview/train/
 Full step-by-step, expected layout, and the failure-mode rubric:
 `docs/FIRST_PLUGIN_BATCH_ACCEPTANCE.md`.
 
+### NeuralData1 Unreal-project capture
+
+Igor's `NeuralData1` handoff is a full Unreal project, not a training
+dataset until the plugin writes non-empty `Images/` and `keyPoint/`
+folders. Use the capture wrapper to copy only the generated export
+folders and run the raw-export acceptance pipeline:
+
+```bash
+python scripts/accept_neuraldata1_capture.py \
+  --overwrite
+```
+
+The wrapper refuses empty captures, leaves the legacy 3D quarantine
+folder out of training, and writes `capture_report.md` / `.json` next
+to the usual acceptance report. It never marks a batch training-ready
+unless the automated gates pass and `--human-preview-accepted` is used
+after visual review.
+
+Full workflow: `docs/NEURALDATA1_CAPTURE_WORKFLOW.md`.
+
 ## Convert real incoming annotations
 
 When a real batch arrives, place it under `data/incoming/<source_name>/`

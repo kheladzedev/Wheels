@@ -2,8 +2,8 @@
 
 The model-loading and prediction paths require ultralytics weights on
 disk and pull MPS/CUDA at first use, so they are deliberately not
-exercised here — see CLAUDE.md "Testing policy". The geometric helpers
-and the drop/flag decisions are all pure numpy and fully testable.
+exercised here. The geometric helpers and the drop/flag decisions are
+all pure numpy and fully testable.
 """
 
 from __future__ import annotations

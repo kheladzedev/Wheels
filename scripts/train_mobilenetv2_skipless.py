@@ -243,6 +243,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Initialise encoder from torchvision ImageNet weights (needs internet).",
     )
+    p.add_argument(
+        "--init-from",
+        type=Path,
+        default=None,
+        help="Path to an existing .pt checkpoint (last.pt) to warm-start from. "
+        "Loads after --pretrained init; raises on shape mismatch.",
+    )
     return p.parse_args(argv)
 
 
@@ -351,7 +358,9 @@ def _finite_or_none(value: float | None) -> float | None:
     return value
 
 
-def _json_ready_config(args: argparse.Namespace, imgsz: int, grid_hw: tuple[int, int]) -> dict:
+def _json_ready_config(
+    args: argparse.Namespace, imgsz: int, grid_hw: tuple[int, int]
+) -> dict:
     config = vars(args).copy()
     for key, value in list(config.items()):
         if isinstance(value, Path):
@@ -382,6 +391,22 @@ def main(argv: list[str] | None = None) -> None:
     weights_dir.mkdir(parents=True, exist_ok=True)
 
     model = MobileNetV2SkiplessPose(pretrained=args.pretrained).to(device)
+    if args.init_from is not None:
+        ckpt_path = Path(args.init_from)
+        if not ckpt_path.is_file():
+            raise FileNotFoundError(f"--init-from checkpoint not found: {ckpt_path}")
+        state = torch.load(ckpt_path, map_location=device, weights_only=False)
+        if isinstance(state, dict):
+            for k in ("model_state_dict", "model", "state_dict"):
+                if k in state:
+                    state = state[k]
+                    break
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        if missing:
+            print(f"--init-from: missing keys (init from scratch): {len(missing)}")
+        if unexpected:
+            print(f"--init-from: unexpected keys (ignored): {len(unexpected)}")
+        print(f"--init-from: loaded {ckpt_path}")
     criterion = PoseLoss().to(device)
 
     optimizer = optim.AdamW(
@@ -463,7 +488,9 @@ def main(argv: list[str] | None = None) -> None:
 
         for step, batch in train_batches:
             images, gt_bb, gt_kp, gt_v = batch
-            ld = _run_batch(model, criterion, images, gt_bb, gt_kp, gt_v, grid_hw, device)
+            ld = _run_batch(
+                model, criterion, images, gt_bb, gt_kp, gt_v, grid_hw, device
+            )
 
             optimizer.zero_grad()
             ld["total"].backward()

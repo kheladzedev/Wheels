@@ -30,8 +30,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS_REQUIRING_NEW_SEMANTICS = (
     "docs/KEYPOINT_SPEC.md",
     "docs/AR_ML_CONTRACT.md",
-    ".claude/skills/vsbl-ar-contract/SKILL.md",
-    "CLAUDE.md",
+    "docs/ML_AR_HANDOFF.md",
+    "docs/REAL_DATA_INGESTION.md",
 )
 
 # Phrases that assert "A/B are rim edges". We flag exact wordings; we

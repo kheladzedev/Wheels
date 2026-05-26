@@ -22,9 +22,9 @@ re-litigating architecture.
   MobileNetV2-skipless model from scratch (ImageNet-pretrained
   encoder) on the real-only set. This is the first true production
   candidate.
-- **Hard requirement before implementation:** lift the `CLAUDE.md`
-  "no torch outside ultralytics" rule. That's the gating `/goal` of
-  the migration.
+- **Hard requirement before implementation:** lift the repository
+  "no torch outside ultralytics" dependency rule. That's the gating
+  migration step.
 
 ## 1. Current state (what we ship today)
 
@@ -257,8 +257,9 @@ concrete starting point.
 # src/models/mobilenetv2_skipless_pose.py (DRAFT — not yet wired in)
 #
 # Requires: torch >= 2.0, torchvision >= 0.15.
-# NOT INSTALLED YET — see CLAUDE.md "no torch outside ultralytics".
-# Implementing this is a separate /goal that lifts that rule.
+# NOT INSTALLED YET — see the repository dependency rule that keeps
+# torch/torchvision isolated from the ultralytics path.
+# Implementing this is a separate migration step that lifts that rule.
 
 from __future__ import annotations
 
@@ -410,8 +411,8 @@ Block implementation until answered:
 
 ## 9. See also
 
-- `CLAUDE.md` — repo guardrails, dep policy. The "no torch outside
-  ultralytics" rule must be lifted by the migration `/goal`.
+- Repository dependency policy — the "no torch outside ultralytics" rule
+  must be lifted by the migration step.
 - `docs/AR_ML_CONTRACT.md` — runtime JSON contract; this
   architecture must emit it byte-for-byte.
 - `docs/KEYPOINT_SPEC.md` — A/B/C semantics under the 2026-05-13

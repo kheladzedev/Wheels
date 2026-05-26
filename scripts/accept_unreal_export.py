@@ -158,6 +158,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "diagnostic workflow."
         ),
     )
+    p.add_argument(
+        "--allow-synthetic-bbox",
+        action="store_true",
+        help=(
+            "DEBUG ONLY: forward to import_unreal_export.py to synthesize bbox "
+            "when raw BBox/WheelBBox is missing."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -731,6 +739,11 @@ def run(args: argparse.Namespace) -> int:
         for name, command in commands:
             if name == "import_raw":
                 command.extend(["--right-left-mapping", args.right_left_mapping])
+                break
+    if args.allow_synthetic_bbox:
+        for name, command in commands:
+            if name == "import_raw":
+                command.append("--allow-synthetic-bbox")
                 break
 
     failed = False
