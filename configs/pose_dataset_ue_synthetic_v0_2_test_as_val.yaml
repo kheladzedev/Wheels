@@ -1,0 +1,15 @@
+# Helper config: identical to pose_dataset_ue_synthetic_v0_2.yaml but
+# routes the YOLO "val" split to images/test/labels/test so the existing
+# eval_keypoints.py (which only takes train/val) can score the held-out
+# 100-frame test slice. Do not train against this file.
+
+path: data/wheel_pose_dataset_ue_synthetic_v0_2
+train: images/train
+val: images/test
+test: images/test
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

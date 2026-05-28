@@ -1,0 +1,14 @@
+# Throwaway config that points eval_keypoints.py (which reads images/<split>
+# from disk regardless of YAML overrides) at the v0.2 test split. Backing
+# data lives in data/wheel_pose_dataset_ue_synthetic_v0_2_testaval/, where
+# images/val and labels/val are hardlinks to the real test split.
+
+path: data/wheel_pose_dataset_ue_synthetic_v0_2_testaval
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

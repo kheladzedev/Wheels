@@ -1,0 +1,24 @@
+# YOLO-pose config for Wheels Dataset v0.2 (UE synthetic baseline).
+#
+# Source dataset: unreal-mcp/MCPGameProject/Saved/WheelsDataset_v0_2
+# (1000 frames at 1280x720, single map WheelsSmokeTest, seed=42).
+#
+# Mirrored to data/incoming/ue_synthetic_v0_2, then converted with:
+#   src/convert_keypoint_incoming_to_yolo_pose.py --val-ratio 0.0 --seed 42
+# and re-bucketed into train/val/test (800/100/100) using the official
+# seed=42 split manifest emitted by the capture pipeline (see
+# data/incoming/ue_synthetic_v0_2/metadata/splits/).
+#
+# Plugin flow: A and B are screen-space floor-ray points,
+# C is the lowest visible disc point (see docs/AR_ML_CONTRACT.md).
+
+path: data/wheel_pose_dataset_ue_synthetic_v0_2
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]
