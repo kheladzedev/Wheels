@@ -45,6 +45,7 @@ One JSON file per image.
 
 ```json
 {
+  "schema_version": 1,
   "frame_id": "frame_0001",
   "image": "frame_0001.jpg",
   "wheels": [
@@ -67,6 +68,7 @@ resolution.
 
 | Field | Type | Notes |
 |---|---|---|
+| `schema_version` | integer | Required as `1` for production AR holdout evidence. |
 | `frame_id` | string | Must equal the image stem. |
 | `image` | string | Filename of the corresponding image, relative to `images/`. |
 | `wheels` | array | Zero or more entries. May be empty. |
@@ -90,11 +92,9 @@ resolution.
 5. `bbox_xyxy` must contain the entire wheel — tyre included. Use
    the same bbox an annotator would draw for the whole wheel
    silhouette.
-6. `points.a` / `points.b` / `points.c_disc_bottom` should lie **inside
-   the bbox** or within a small tolerance of it (the validator allows
-   a 5 px slack so a slightly-clipped C disc-bottom on a tyre edge
-   doesn't fail validation). Anything beyond that is a labelling
-   mistake.
+6. `points.a` / `points.b` / `points.c_disc_bottom` must lie **inside
+   the bbox** for production AR holdout evidence. Out-of-box points are
+   rejected as invalid evidence.
 7. `c_disc_bottom` is the lowest visible point of the **metal disc /
    rim**. NOT the tyre's contact patch with the ground. NOT the wheel
    hub centre.
@@ -173,6 +173,10 @@ provenance only.
 | Generate a synthetic batch in this format | `python src/create_sample_keypoint_incoming.py --count 50 --overwrite` |
 | Validate a real plugin batch | `python src/check_keypoint_incoming.py --source-root data/incoming/android_plugin` |
 | Preview labels with bbox + A/B/C overlay | `python src/preview_keypoint_annotations.py --source-root data/incoming/android_plugin --count 10` |
+
+For production AR holdout batches, Android/AR can use
+`ar_holdout_harness/ArHoldoutAnnotationWriter.kt` to write this layout
+plus `metadata/provenance.json` deterministically.
 
 ## See also
 

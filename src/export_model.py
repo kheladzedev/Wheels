@@ -174,6 +174,7 @@ def compare_detections(
     max_bbox = 0.0
     max_kp = 0.0
     max_conf = 0.0
+    pair_diagnostics: list[dict] = []
 
     if len(pt_dets) != len(ex_dets):
         failures.append(
@@ -185,11 +186,23 @@ def compare_detections(
     for pt_idx, ex_idx in pairs:
         pt = pt_dets[pt_idx]
         ex = ex_dets[ex_idx]
+        pair_report: dict = {
+            "pt_idx": pt_idx,
+            "exported_idx": ex_idx,
+            "iou": _box_iou(pt["bbox"], ex["bbox"]),
+            "coordinate_scale_warning": False,
+        }
 
         # bbox: per-coordinate abs drift, take the max.
         pt_bbox = np.asarray(pt["bbox"], dtype=np.float64)
         ex_bbox = np.asarray(ex["bbox"], dtype=np.float64)
         bbox_drift = float(np.max(np.abs(pt_bbox - ex_bbox))) if pt_bbox.size else 0.0
+        pair_report["bbox_drift_px"] = bbox_drift
+        if pt_bbox.size and ex_bbox.size:
+            pair_report["pt_bbox_max_coord"] = float(np.max(np.abs(pt_bbox)))
+            pair_report["exported_bbox_max_coord"] = float(np.max(np.abs(ex_bbox)))
+            if pair_report["pt_bbox_max_coord"] > 32.0 and pair_report["exported_bbox_max_coord"] <= 2.0:
+                pair_report["coordinate_scale_warning"] = True
         max_bbox = max(max_bbox, bbox_drift)
         if not np.allclose(pt_bbox, ex_bbox, atol=bbox_atol):
             failures.append(
@@ -202,6 +215,9 @@ def compare_detections(
         pt_conf = float(pt.get("conf", 0.0))
         ex_conf = float(ex.get("conf", 0.0))
         conf_drift = abs(pt_conf - ex_conf)
+        pair_report["pt_conf"] = pt_conf
+        pair_report["exported_conf"] = ex_conf
+        pair_report["conf_drift"] = conf_drift
         max_conf = max(max_conf, conf_drift)
         if conf_drift > conf_atol:
             failures.append(
@@ -214,18 +230,26 @@ def compare_detections(
         pt_kp = np.asarray(pt.get("keypoints", []), dtype=np.float64)
         ex_kp = np.asarray(ex.get("keypoints", []), dtype=np.float64)
         if pt_kp.shape != ex_kp.shape:
+            pair_report["keypoint_shape"] = {
+                "pt": list(pt_kp.shape),
+                "exported": list(ex_kp.shape),
+            }
             failures.append(
                 f"keypoint shape differs at pt_idx={pt_idx} "
                 f"exported_idx={ex_idx}: pt={pt_kp.shape} exported={ex_kp.shape}"
             )
         elif pt_kp.size:
             kp_drift = float(np.max(np.abs(pt_kp - ex_kp)))
+            pair_report["keypoint_drift_px"] = kp_drift
             max_kp = max(max_kp, kp_drift)
             if not np.allclose(pt_kp, ex_kp, atol=kp_atol):
                 failures.append(
                     f"keypoint drift exceeds {kp_atol}px at pt_idx={pt_idx} "
                     f"exported_idx={ex_idx} (max drift {kp_drift:.3f}px)"
                 )
+        else:
+            pair_report["keypoint_drift_px"] = 0.0
+        pair_diagnostics.append(pair_report)
 
     matched = not failures
     return {
@@ -235,6 +259,7 @@ def compare_detections(
         "max_bbox_drift_px": max_bbox,
         "max_kp_drift_px": max_kp,
         "max_conf_drift": max_conf,
+        "pair_diagnostics": pair_diagnostics,
         "failures": failures,
     }
 
@@ -433,6 +458,16 @@ def parse_args() -> argparse.Namespace:
         help="Skip the numerical comparison after export.",
     )
     p.add_argument(
+        "--exported-task",
+        choices=("auto", "detect", "segment", "classify", "pose", "obb"),
+        default="auto",
+        help=(
+            "Task hint when reloading the exported artifact for sanity check. "
+            "Use 'pose' for backends such as TFLite when Ultralytics cannot "
+            "infer the task from the exported file."
+        ),
+    )
+    p.add_argument(
         "--out-dir",
         type=Path,
         default=None,
@@ -572,7 +607,10 @@ def main() -> int:
     # (the Exporter mutates a few attributes during conversion) doesn't
     # leak into the comparison.
     pt_model = YOLO(str(args.model))
-    exported_model = YOLO(str(exported_path))
+    exported_model_kwargs = {}
+    if args.exported_task != "auto":
+        exported_model_kwargs["task"] = args.exported_task
+    exported_model = YOLO(str(exported_path), **exported_model_kwargs)
 
     pt_result = infer_one(
         pt_model,

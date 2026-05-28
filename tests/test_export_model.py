@@ -144,6 +144,7 @@ def test_compare_detections_perfect_match():
     assert report["max_bbox_drift_px"] == 0.0
     assert report["max_kp_drift_px"] == 0.0
     assert report["max_conf_drift"] == 0.0
+    assert report["pair_diagnostics"][0]["coordinate_scale_warning"] is False
     assert report["failures"] == []
 
 
@@ -190,6 +191,17 @@ def test_compare_detections_bbox_drift_exceeds_tol():
     assert report["matched"] is False
     assert report["max_bbox_drift_px"] == pytest.approx(5.0)
     assert any("bbox drift" in f for f in report["failures"])
+
+
+def test_compare_detections_flags_normalized_exported_coordinates():
+    pt = _result(_det((100, 100, 200, 200), conf=0.9))
+    ex = _result(_det((0.1, 0.1, 0.2, 0.2), conf=0.9))
+
+    report = compare_detections(pt, ex)
+
+    assert report["matched"] is False
+    assert report["pair_diagnostics"][0]["coordinate_scale_warning"] is True
+    assert report["pair_diagnostics"][0]["exported_bbox_max_coord"] <= 2.0
 
 
 # ---------------------------------------------------------------------------

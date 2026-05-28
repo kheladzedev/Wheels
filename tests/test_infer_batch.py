@@ -18,6 +18,7 @@ import pytest
 from infer_batch import (
     DEFAULT_IMAGE_FPS,
     IMAGE_EXTS,
+    _build_payloads,
     frame_id_for_image,
     frame_id_for_video,
     iter_image_paths,
@@ -208,3 +209,49 @@ def test_iter_image_paths_default_extensions_match_constant(tmp_path: Path):
 
     out = iter_image_paths(tmp_path)
     assert len(out) == len(IMAGE_EXTS)
+
+
+# ---------------------------------------------------------------------------
+# _build_payloads
+# ---------------------------------------------------------------------------
+
+
+def test_build_payloads_primary_output_is_confirmed_schema():
+    detections = [
+        {
+            "class_name": "wheel",
+            "bbox": [10, 20, 60, 80],
+            "confidence": 0.93,
+            "keypoints": [
+                {"xy": [15, 30], "visibility": 2, "confidence": 0.91},
+                {"xy": [55, 75], "visibility": 2, "confidence": 0.90},
+                {"xy": [35, 79], "visibility": 2, "confidence": 0.88},
+            ],
+        }
+    ]
+    confirmed, legacy, target = _build_payloads(
+        detections,
+        conf=0.25,
+        frame_id="frame_0001",
+        timestamp=1.25,
+        img_size=[640, 480],
+        thresholds={"conf": 0.25, "iou": 0.45, "max_det": 20},
+        want_target=True,
+    )
+
+    assert set(confirmed.keys()) == {"frame_id", "wheels"}
+    assert set(confirmed["wheels"][0].keys()) == {"bbox_xyxy", "confidence", "points"}
+    assert set(confirmed["wheels"][0]["points"].keys()) == {
+        "a",
+        "b",
+        "c_disc_bottom",
+    }
+    assert "timestamp" not in confirmed
+    assert "image_size" not in confirmed
+    assert "thresholds" not in confirmed
+
+    assert legacy["timestamp"] == 1.25
+    assert legacy["image_size"] == [640, 480]
+    assert legacy["thresholds"]["conf"] == 0.25
+    assert target is not None
+    assert "bbox_xywh" in target["wheels"][0]

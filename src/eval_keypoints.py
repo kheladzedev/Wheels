@@ -896,6 +896,15 @@ def parse_args() -> argparse.Namespace:
         help="Path to a trained YOLO-pose checkpoint (.pt).",
     )
     p.add_argument(
+        "--model-task",
+        choices=("auto", "detect", "segment", "classify", "pose", "obb"),
+        default="auto",
+        help=(
+            "Task hint when loading the model. Use 'pose' for exported "
+            "backends such as TFLite when Ultralytics cannot infer the task."
+        ),
+    )
+    p.add_argument(
         "--data",
         type=Path,
         default=Path("configs/pose_dataset.yaml"),
@@ -991,7 +1000,10 @@ def main() -> int:
             f"WARNING: requested device {args.device!r} not available, using {device!r}."
         )
 
-    model = YOLO(str(args.model))
+    model_kwargs = {}
+    if args.model_task != "auto":
+        model_kwargs["task"] = args.model_task
+    model = YOLO(str(args.model), **model_kwargs)
     if getattr(model, "task", None) != "pose":
         raise SystemExit(
             f"ERROR: model task is {getattr(model, 'task', '?')!r}, expected 'pose'. "
