@@ -1,0 +1,22 @@
+# YOLO-pose config for UE geometry labels from imported Sketchfab/Objaverse car models.
+#
+# Source:
+#   data/incoming/ue_sketchfab_geometry
+#
+# Converted with:
+#   src/convert_keypoint_incoming_to_yolo_pose.py
+#
+# Important caveat: labels are generated from wheel/tire/rim mesh-part
+# bounds projected by the Unreal CameraCapture rig. They are stronger
+# than model pseudo-labels for this pool, but still marked as draft
+# geometry proxies and should be spot-QA'd before production training.
+
+path: data/wheel_pose_dataset_ue_sketchfab_geometry
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

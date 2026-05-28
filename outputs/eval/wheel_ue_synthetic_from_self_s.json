@@ -1,0 +1,241 @@
+{
+  "model": "runs/pose/wheel_ue_synthetic_from_self_s/weights/best.pt",
+  "data": "configs/pose_dataset_ue_synthetic.yaml",
+  "split": "val",
+  "device": "mps",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 20,
+    "pred_wheels_above_conf": 2,
+    "matched": 1,
+    "false_negatives": 19,
+    "false_positives": 1,
+    "images": 10
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 33.67624011355284,
+      "mean": 33.67624011355284,
+      "p95": 33.67624011355284,
+      "p99": 33.67624011355284,
+      "n": 1
+    },
+    "point_b": {
+      "median": 51.39574675687184,
+      "mean": 51.39574675687184,
+      "p95": 51.39574675687184,
+      "p99": 51.39574675687184,
+      "n": 1
+    },
+    "point_c_disc_bottom": {
+      "median": 89.29191844004929,
+      "mean": 89.29191844004929,
+      "p95": 89.29191844004929,
+      "p99": 89.29191844004929,
+      "n": 1
+    }
+  },
+  "oks": {
+    "mean": 0.15201970211904745,
+    "n": 1
+  },
+  "rates": {
+    "false_negative_rate": 0.95,
+    "false_positive_rate": 0.5
+  },
+  "metrics_bbox": {
+    "mAP50": 0.095,
+    "mAP50_95": 0.04975
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 33.67624011355284,
+            "mean": 33.67624011355284,
+            "p95": 33.67624011355284,
+            "p99": 33.67624011355284,
+            "n": 1
+          },
+          "point_b": {
+            "median": 51.39574675687184,
+            "mean": 51.39574675687184,
+            "p95": 51.39574675687184,
+            "p99": 51.39574675687184,
+            "n": 1
+          },
+          "point_c_disc_bottom": {
+            "median": 89.29191844004929,
+            "mean": 89.29191844004929,
+            "p95": 89.29191844004929,
+            "p99": 89.29191844004929,
+            "n": 1
+          }
+        },
+        "oks": {
+          "mean": 0.15201970211904745,
+          "n": 1
+        },
+        "n_matched": 1
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 33.67624011355284,
+            "mean": 33.67624011355284,
+            "p95": 33.67624011355284,
+            "p99": 33.67624011355284,
+            "n": 1
+          },
+          "point_b": {
+            "median": 51.39574675687184,
+            "mean": 51.39574675687184,
+            "p95": 51.39574675687184,
+            "p99": 51.39574675687184,
+            "n": 1
+          },
+          "point_c_disc_bottom": {
+            "median": 89.29191844004929,
+            "mean": 89.29191844004929,
+            "p95": 89.29191844004929,
+            "p99": 89.29191844004929,
+            "n": 1
+          }
+        },
+        "oks": {
+          "mean": 0.15201970211904745,
+          "n": 1
+        },
+        "n_matched": 1
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_ue_synthetic/images/val/ue_synthetic_v1__ue_synthetic_v1__000729.jpg",
+      "score_px": 58.12130177015799,
+      "oks": 0.15201970211904745,
+      "per_keypoint_px": [
+        33.67624011355284,
+        51.39574675687184,
+        89.29191844004929
+      ],
+      "gt_bbox_xyxy": [
+        1496.4090879999999,
+        781.7922560000001,
+        1728.797696,
+        1021.7216
+      ],
+      "pred_bbox_xyxy": [
+        1535.5247802734375,
+        789.053466796875,
+        1728.8013916015625,
+        1021.2429809570312
+      ]
+    }
+  ]
+}

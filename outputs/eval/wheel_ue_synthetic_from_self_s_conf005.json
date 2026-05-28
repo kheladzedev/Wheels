@@ -1,0 +1,285 @@
+{
+  "model": "runs/pose/wheel_ue_synthetic_from_self_s/weights/best.pt",
+  "data": "configs/pose_dataset_ue_synthetic.yaml",
+  "split": "val",
+  "device": "mps",
+  "thresholds": {
+    "conf": 0.05,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 20,
+    "pred_wheels_above_conf": 7,
+    "matched": 3,
+    "false_negatives": 17,
+    "false_positives": 4,
+    "images": 10
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 50.93716304406728,
+      "mean": 59.44120383579164,
+      "p95": 89.43290381918604,
+      "p99": 92.85474744364105,
+      "n": 3
+    },
+    "point_b": {
+      "median": 51.39574675687184,
+      "mean": 66.29672877003985,
+      "p95": 120.258226094858,
+      "p99": 126.37933536934567,
+      "n": 3
+    },
+    "point_c_disc_bottom": {
+      "median": 71.52328655794358,
+      "mean": 59.52655666104363,
+      "p95": 87.51505525183872,
+      "p99": 88.93654580240717,
+      "n": 3
+    }
+  },
+  "oks": {
+    "mean": 0.1883518083562412,
+    "n": 3
+  },
+  "rates": {
+    "false_negative_rate": 0.85,
+    "false_positive_rate": 0.5714285714285714
+  },
+  "metrics_bbox": {
+    "mAP50": 0.125,
+    "mAP50_95": 0.06765
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 50.93716304406728,
+            "mean": 59.44120383579164,
+            "p95": 89.43290381918604,
+            "p99": 92.85474744364105,
+            "n": 3
+          },
+          "point_b": {
+            "median": 51.39574675687184,
+            "mean": 66.29672877003985,
+            "p95": 120.258226094858,
+            "p99": 126.37933536934567,
+            "n": 3
+          },
+          "point_c_disc_bottom": {
+            "median": 71.52328655794358,
+            "mean": 59.52655666104363,
+            "p95": 87.51505525183872,
+            "p99": 88.93654580240717,
+            "n": 3
+          }
+        },
+        "oks": {
+          "mean": 0.1883518083562412,
+          "n": 3
+        },
+        "n_matched": 3
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 50.93716304406728,
+            "mean": 59.44120383579164,
+            "p95": 89.43290381918604,
+            "p99": 92.85474744364105,
+            "n": 3
+          },
+          "point_b": {
+            "median": 51.39574675687184,
+            "mean": 66.29672877003985,
+            "p95": 120.258226094858,
+            "p99": 126.37933536934567,
+            "n": 3
+          },
+          "point_c_disc_bottom": {
+            "median": 71.52328655794358,
+            "mean": 59.52655666104363,
+            "p95": 87.51505525183872,
+            "p99": 88.93654580240717,
+            "n": 3
+          }
+        },
+        "oks": {
+          "mean": 0.1883518083562412,
+          "n": 3
+        },
+        "n_matched": 3
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_ue_synthetic/images/val/ue_synthetic_v1__ue_synthetic_v1__000695.jpg",
+      "score_px": 97.7143691985553,
+      "oks": 0.025916750630226023,
+      "per_keypoint_px": [
+        93.7102083497548,
+        127.90961268796758,
+        71.52328655794358
+      ],
+      "gt_bbox_xyxy": [
+        1007.716352,
+        423.986176,
+        1311.6723200000001,
+        736.553984
+      ],
+      "pred_bbox_xyxy": [
+        1105.7705078125,
+        405.998779296875,
+        1339.7642822265625,
+        699.079833984375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_ue_synthetic/images/val/ue_synthetic_v1__ue_synthetic_v1__000729.jpg",
+      "score_px": 58.12130177015799,
+      "oks": 0.15201970211904745,
+      "per_keypoint_px": [
+        33.67624011355284,
+        51.39574675687184,
+        89.29191844004929
+      ],
+      "gt_bbox_xyxy": [
+        1496.4090879999999,
+        781.7922560000001,
+        1728.797696,
+        1021.7216
+      ],
+      "pred_bbox_xyxy": [
+        1535.5247802734375,
+        789.053466796875,
+        1728.8013916015625,
+        1021.2429809570312
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_ue_synthetic/images/val/ue_synthetic_v1__ue_synthetic_v1__000668.jpg",
+      "score_px": 29.428818298161815,
+      "oks": 0.38711897231945014,
+      "per_keypoint_px": [
+        50.93716304406728,
+        19.584826865280135,
+        17.764464985138037
+      ],
+      "gt_bbox_xyxy": [
+        1138.725888,
+        284.59008,
+        1310.952448,
+        466.223104
+      ],
+      "pred_bbox_xyxy": [
+        1164.67529296875,
+        297.248046875,
+        1321.218017578125,
+        469.4252014160156
+      ]
+    }
+  ]
+}

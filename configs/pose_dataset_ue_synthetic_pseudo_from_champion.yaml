@@ -1,0 +1,22 @@
+# YOLO-pose config for champion pseudo-labels on existing UE synthetic renders.
+#
+# Source:
+#   data/incoming/ue_synthetic_pseudo_from_champion
+#
+# Converted with:
+#   src/convert_keypoint_incoming_to_yolo_pose.py
+#
+# Important caveat: labels are model pseudo-labels produced by
+# runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt.
+# They are useful for smoke tests, QA, and weak self-training experiments,
+# but they are not engine ground truth.
+
+path: data/wheel_pose_dataset_ue_synthetic_pseudo_from_champion
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

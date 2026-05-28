@@ -1,0 +1,439 @@
+{
+  "model": "runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx",
+  "data": "configs/pose_dataset_real_v1_self_plus_ue_synthetic.yaml",
+  "split": "val",
+  "device": "cpu",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 84,
+    "pred_wheels_above_conf": 82,
+    "matched": 60,
+    "false_negatives": 24,
+    "false_positives": 22,
+    "images": 58
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 7.324441453166877,
+      "mean": 8.622941882635427,
+      "p95": 19.914111154059672,
+      "p99": 23.34390567377644,
+      "n": 60
+    },
+    "point_b": {
+      "median": 7.935234168262252,
+      "mean": 8.337197099162246,
+      "p95": 14.751144936224309,
+      "p99": 30.108124756399558,
+      "n": 60
+    },
+    "point_c_disc_bottom": {
+      "median": 7.92017788476542,
+      "mean": 7.795372116689655,
+      "p95": 13.707769969807497,
+      "p99": 15.161641473729995,
+      "n": 60
+    }
+  },
+  "oks": {
+    "mean": 0.8880996578601513,
+    "n": 60
+  },
+  "rates": {
+    "false_negative_rate": 0.2857142857142857,
+    "false_positive_rate": 0.2682926829268293
+  },
+  "metrics_bbox": {
+    "mAP50": 0.6923761088840539,
+    "mAP50_95": 0.6170811216723833
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 4.168846734518556,
+            "mean": 4.940702175332824,
+            "p95": 7.808033621877412,
+            "p99": 8.131516900753754,
+            "n": 3
+          },
+          "point_b": {
+            "median": 4.895438151969883,
+            "mean": 4.730191606137587,
+            "p95": 7.9114468160641245,
+            "p99": 8.179536475094723,
+            "n": 3
+          },
+          "point_c_disc_bottom": {
+            "median": 4.449403274707536,
+            "mean": 4.339426078141035,
+            "p95": 4.6442922872757935,
+            "p99": 4.661615755059638,
+            "n": 3
+          }
+        },
+        "oks": {
+          "mean": 0.8474578340756095,
+          "n": 3
+        },
+        "n_matched": 3
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 7.448235545304407,
+            "mean": 8.816743972493459,
+            "p95": 20.204689021633985,
+            "p99": 23.387385023247944,
+            "n": 57
+          },
+          "point_b": {
+            "median": 8.080311825051991,
+            "mean": 8.527039493531966,
+            "p95": 15.971578749698178,
+            "p99": 30.229728989154705,
+            "n": 57
+          },
+          "point_c_disc_bottom": {
+            "median": 8.040124756365541,
+            "mean": 7.977264013455372,
+            "p95": 13.770077562680756,
+            "p99": 15.218068310559223,
+            "n": 57
+          }
+        },
+        "oks": {
+          "mean": 0.8902387012172326,
+          "n": 57
+        },
+        "n_matched": 57
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 7.324441453166877,
+            "mean": 8.622941882635427,
+            "p95": 19.914111154059672,
+            "p99": 23.34390567377644,
+            "n": 60
+          },
+          "point_b": {
+            "median": 7.935234168262252,
+            "mean": 8.337197099162246,
+            "p95": 14.751144936224309,
+            "p99": 30.108124756399558,
+            "n": 60
+          },
+          "point_c_disc_bottom": {
+            "median": 7.92017788476542,
+            "mean": 7.795372116689655,
+            "p95": 13.707769969807497,
+            "p99": 15.161641473729995,
+            "n": 60
+          }
+        },
+        "oks": {
+          "mean": 0.8880996578601513,
+          "n": 60
+        },
+        "n_matched": 60
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0225_1989_Mitsubishi_Colt_RE_XL_5-door_hatchback_14976570329.jpg",
+      "score_px": 19.476394100115808,
+      "oks": 0.7301845182313387,
+      "per_keypoint_px": [
+        17.904008144319477,
+        32.49967466725065,
+        8.025499488777301
+      ],
+      "gt_bbox_xyxy": [
+        705.32416,
+        395.11116000000004,
+        962.63872,
+        653.56596
+      ],
+      "pred_bbox_xyxy": [
+        688.2882080078125,
+        368.0570068359375,
+        1003.6541748046875,
+        657.8421630859375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0023_View_of_a_car_parked_on_the_side_of_a_road_AM_79470-1.jpg",
+      "score_px": 17.782624423431184,
+      "oks": 0.844547370207995,
+      "per_keypoint_px": [
+        21.754437648697024,
+        22.480559088225572,
+        9.11287653337095
+      ],
+      "gt_bbox_xyxy": [
+        313.7156625,
+        427.82594400000005,
+        603.7360875,
+        779.532824
+      ],
+      "pred_bbox_xyxy": [
+        324.31561279296875,
+        432.3739013671875,
+        592.4530029296875,
+        777.8009033203125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0222_1972_BMW_2002_Touring_Hatchback_30492979907.jpg",
+      "score_px": 17.5271947465277,
+      "oks": 0.6946474476282612,
+      "per_keypoint_px": [
+        22.7496878976659,
+        13.560527077212413,
+        16.27136926470479
+      ],
+      "gt_bbox_xyxy": [
+        667.73568,
+        497.3992275,
+        840.1964800000001,
+        744.5585365
+      ],
+      "pred_bbox_xyxy": [
+        653.0301513671875,
+        490.45208740234375,
+        840.4871826171875,
+        748.9754028320312
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0290_BMW_5_SERIES_LWB_SEDAN_BMW_G38_China.jpg",
+      "score_px": 16.940316462042574,
+      "oks": 0.590756147245859,
+      "per_keypoint_px": [
+        24.19899954671601,
+        14.191849865351417,
+        12.4300999740603
+      ],
+      "gt_bbox_xyxy": [
+        1045.00928,
+        432.14603650000004,
+        1182.03968,
+        627.8549495
+      ],
+      "pred_bbox_xyxy": [
+        1037.84814453125,
+        429.9959716796875,
+        1186.591796875,
+        630.0980224609375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0021_View_of_a_car_parked_on_the_side_of_a_road_AM_79469-1.jpg",
+      "score_px": 16.27930779970316,
+      "oks": 0.8798277587381986,
+      "per_keypoint_px": [
+        7.527943350585624,
+        28.446200242079332,
+        12.863779806444528
+      ],
+      "gt_bbox_xyxy": [
+        557.3802749999999,
+        459.2796075,
+        913.212375,
+        813.3004665
+      ],
+      "pred_bbox_xyxy": [
+        553.1717529296875,
+        467.72265625,
+        891.5331420898438,
+        822.328369140625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0242_1977_AMC_Hornet_AMX_yellow_AMO_2015_meet_1of4.jpg",
+      "score_px": 14.262271400026771,
+      "oks": 0.8102384420639686,
+      "per_keypoint_px": [
+        19.817251864868236,
+        10.113967793978182,
+        12.855594541233902
+      ],
+      "gt_bbox_xyxy": [
+        739.92448,
+        545.8992000000001,
+        915.0643200000001,
+        834.3177599999999
+      ],
+      "pred_bbox_xyxy": [
+        727.0567626953125,
+        543.0028686523438,
+        915.6798095703125,
+        837.1572875976562
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0199_1954_Chevrolet_Bel_Air_4-Door_Sedan_front_left_2022_Ellwood_City_Fall_Fest_Car_Cruise.jpg",
+      "score_px": 13.48588679740043,
+      "oks": 0.8176953748112527,
+      "per_keypoint_px": [
+        16.85521671059865,
+        10.318761001607573,
+        13.283682679995069
+      ],
+      "gt_bbox_xyxy": [
+        540.1465599999999,
+        459.35956899999996,
+        722.3968,
+        713.098943
+      ],
+      "pred_bbox_xyxy": [
+        530.867431640625,
+        460.25103759765625,
+        724.79541015625,
+        717.2986450195312
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0060_Land_Rover_Range_Rover_Evoque_Convertible_2016_-_front_three-quarter.jpg",
+      "score_px": 12.24864967695756,
+      "oks": 0.8868334667668378,
+      "per_keypoint_px": [
+        12.188718926691635,
+        12.826122948758815,
+        11.731107155422231
+      ],
+      "gt_bbox_xyxy": [
+        429.03423999999995,
+        501.884589,
+        639.8886399999999,
+        798.415671
+      ],
+      "pred_bbox_xyxy": [
+        421.7509460449219,
+        496.796875,
+        636.16845703125,
+        804.096435546875
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0316_1994-1995_Toyota_Camry_Vienta_VDV10_CSX_sedan_02.jpg",
+      "score_px": 12.207823201775383,
+      "oks": 0.7887753848206008,
+      "per_keypoint_px": [
+        16.439046723769017,
+        8.989865741564428,
+        11.194557139992703
+      ],
+      "gt_bbox_xyxy": [
+        1075.15904,
+        285.28806000000003,
+        1230.14912,
+        494.49818
+      ],
+      "pred_bbox_xyxy": [
+        1065.4619140625,
+        286.5089111328125,
+        1229.81787109375,
+        494.8653564453125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0179_1991_Buick_LeSabre_Limited_Sedan_front_right_2022_Ellwood_City_Fall_Fest_Car_Cruise.jpg",
+      "score_px": 11.323939271004923,
+      "oks": 0.8792414877859929,
+      "per_keypoint_px": [
+        9.272291078033657,
+        11.01252596279803,
+        13.687000772183078
+      ],
+      "gt_bbox_xyxy": [
+        492.87552000000005,
+        424.01463,
+        692.6784,
+        678.08793
+      ],
+      "pred_bbox_xyxy": [
+        492.2681579589844,
+        425.516845703125,
+        690.3172607421875,
+        678.097900390625
+      ]
+    }
+  ]
+}

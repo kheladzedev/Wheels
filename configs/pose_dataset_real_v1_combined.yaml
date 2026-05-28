@@ -1,0 +1,9 @@
+path: data/wheel_pose_dataset_real_v1_combined
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

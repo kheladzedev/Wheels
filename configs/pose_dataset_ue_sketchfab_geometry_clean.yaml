@@ -1,0 +1,25 @@
+# YOLO-pose config for QA-filtered UE geometry labels from Sketchfab/Objaverse cars.
+#
+# Source:
+#   data/incoming/ue_sketchfab_geometry_clean
+#
+# QA filter:
+#   src/filter_geometry_incoming.py
+#
+# Converted with:
+#   src/convert_keypoint_incoming_to_yolo_pose.py
+#
+# Important caveat: labels are projected wheel/tire/rim mesh-part
+# geometry proxies. This clean split removes black frames and suspicious
+# oversized geometry boxes, but the labels remain draft/review-needed
+# until spot QA accepts them for production training.
+
+path: data/wheel_pose_dataset_ue_sketchfab_geometry_clean
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

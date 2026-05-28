@@ -1,0 +1,439 @@
+{
+  "model": "runs/pose/runs/pose/wheel_real_v1_self_s/weights/best.pt",
+  "data": "configs/pose_dataset_real_v1_self.yaml",
+  "split": "val",
+  "device": "cpu",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 64,
+    "pred_wheels_above_conf": 82,
+    "matched": 59,
+    "false_negatives": 5,
+    "false_positives": 23,
+    "images": 48
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 7.470493590892868,
+      "mean": 7.696057664505158,
+      "p95": 17.41356731592962,
+      "p99": 20.382785699057003,
+      "n": 59
+    },
+    "point_b": {
+      "median": 7.572412890236784,
+      "mean": 8.267120730760741,
+      "p95": 16.126121029822624,
+      "p99": 30.450394316470394,
+      "n": 59
+    },
+    "point_c_disc_bottom": {
+      "median": 7.236589219353339,
+      "mean": 7.712663268927765,
+      "p95": 14.085667086305293,
+      "p99": 16.38758563938484,
+      "n": 59
+    }
+  },
+  "oks": {
+    "mean": 0.8935716203299612,
+    "n": 59
+  },
+  "rates": {
+    "false_negative_rate": 0.078125,
+    "false_positive_rate": 0.2804878048780488
+  },
+  "metrics_bbox": {
+    "mAP50": 0.9029617970329304,
+    "mAP50_95": 0.7843261190483761
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 2.8685174779236164,
+            "mean": 4.024544381623058,
+            "p95": 7.256241085801953,
+            "p99": 7.818495105443955,
+            "n": 4
+          },
+          "point_b": {
+            "median": 2.3254356331431834,
+            "mean": 3.456030423447315,
+            "p95": 7.121994716151431,
+            "p99": 7.672712707554118,
+            "n": 4
+          },
+          "point_c_disc_bottom": {
+            "median": 5.128913505240518,
+            "mean": 5.155695435996288,
+            "p95": 6.10332527769932,
+            "p99": 6.16373362611819,
+            "n": 4
+          }
+        },
+        "oks": {
+          "mean": 0.8291768949743189,
+          "n": 4
+        },
+        "n_matched": 4
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 7.482221712890498,
+            "mean": 7.9630768123511295,
+            "p95": 17.80443363637272,
+            "p99": 20.450771959959177,
+            "n": 55
+          },
+          "point_b": {
+            "median": 7.637297030046683,
+            "mean": 8.617018207656262,
+            "p95": 16.627604694023535,
+            "p99": 31.1985406149385,
+            "n": 55
+          },
+          "point_c_disc_bottom": {
+            "median": 7.521666992594558,
+            "mean": 7.898624565868237,
+            "p95": 14.13382238666865,
+            "p99": 16.460706918579028,
+            "n": 55
+          }
+        },
+        "oks": {
+          "mean": 0.8982548730830988,
+          "n": 55
+        },
+        "n_matched": 55
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 7.470493590892868,
+            "mean": 7.696057664505158,
+            "p95": 17.41356731592962,
+            "p99": 20.382785699057003,
+            "n": 59
+          },
+          "point_b": {
+            "median": 7.572412890236784,
+            "mean": 8.267120730760741,
+            "p95": 16.126121029822624,
+            "p99": 30.450394316470394,
+            "n": 59
+          },
+          "point_c_disc_bottom": {
+            "median": 7.236589219353339,
+            "mean": 7.712663268927765,
+            "p95": 14.085667086305293,
+            "p99": 16.38758563938484,
+            "n": 59
+          }
+        },
+        "oks": {
+          "mean": 0.8935716203299612,
+          "n": 59
+        },
+        "n_matched": 59
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0021_View_of_a_car_parked_on_the_side_of_a_road_AM_79469-1.jpg",
+      "score_px": 25.363597870009183,
+      "oks": 0.7600352333335669,
+      "per_keypoint_px": [
+        19.172465757923565,
+        41.29851564425811,
+        15.619812207845873
+      ],
+      "gt_bbox_xyxy": [
+        557.3802749999999,
+        459.2796075,
+        913.212375,
+        813.3004665
+      ],
+      "pred_bbox_xyxy": [
+        533.8261108398438,
+        455.8845520019531,
+        903.3703002929688,
+        830.5646362304688
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0023_View_of_a_car_parked_on_the_side_of_a_road_AM_79470-1.jpg",
+      "score_px": 18.51146700082501,
+      "oks": 0.8381782927459245,
+      "per_keypoint_px": [
+        21.368586482138547,
+        22.5948581825551,
+        11.570956337781388
+      ],
+      "gt_bbox_xyxy": [
+        313.7156625,
+        427.82594400000005,
+        603.7360875,
+        779.532824
+      ],
+      "pred_bbox_xyxy": [
+        301.5571594238281,
+        427.044189453125,
+        616.6797485351562,
+        791.6378173828125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0225_1989_Mitsubishi_Colt_RE_XL_5-door_hatchback_14976570329.jpg",
+      "score_px": 15.567754000585866,
+      "oks": 0.8285457003913012,
+      "per_keypoint_px": [
+        19.668929959584155,
+        15.875379197722186,
+        11.158952844451255
+      ],
+      "gt_bbox_xyxy": [
+        705.32416,
+        395.11116000000004,
+        962.63872,
+        653.56596
+      ],
+      "pred_bbox_xyxy": [
+        688.8973388671875,
+        362.044921875,
+        1003.757080078125,
+        664.0565185546875
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0060_Land_Rover_Range_Rover_Evoque_Convertible_2016_-_front_three-quarter.jpg",
+      "score_px": 14.852941223914542,
+      "oks": 0.8354690920319795,
+      "per_keypoint_px": [
+        12.218880433591519,
+        18.38279751872671,
+        13.957145719425393
+      ],
+      "gt_bbox_xyxy": [
+        429.03423999999995,
+        501.884589,
+        639.8886399999999,
+        798.415671
+      ],
+      "pred_bbox_xyxy": [
+        415.16552734375,
+        496.82958984375,
+        642.874267578125,
+        805.916259765625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0199_1954_Chevrolet_Bel_Air_4-Door_Sedan_front_left_2022_Ellwood_City_Fall_Fest_Car_Cruise.jpg",
+      "score_px": 13.557623325979582,
+      "oks": 0.8023419268062192,
+      "per_keypoint_px": [
+        17.218134155708082,
+        6.006891634530109,
+        17.44784418770055
+      ],
+      "gt_bbox_xyxy": [
+        540.1465599999999,
+        459.35956899999996,
+        722.3968,
+        713.098943
+      ],
+      "pred_bbox_xyxy": [
+        526.2644653320312,
+        454.78753662109375,
+        726.8030395507812,
+        719.0368041992188
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0222_1972_BMW_2002_Touring_Hatchback_30492979907.jpg",
+      "score_px": 12.030756804461396,
+      "oks": 0.8397664895291235,
+      "per_keypoint_px": [
+        14.300813153152145,
+        8.648921330641791,
+        13.142535929590245
+      ],
+      "gt_bbox_xyxy": [
+        667.73568,
+        497.3992275,
+        840.1964800000001,
+        744.5585365
+      ],
+      "pred_bbox_xyxy": [
+        658.7646484375,
+        490.365478515625,
+        844.57080078125,
+        750.39892578125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0078_Black_Volvo_V60_D4_three-quarter_back_view.jpg",
+      "score_px": 11.940514955605623,
+      "oks": 0.8405068423446114,
+      "per_keypoint_px": [
+        12.057959547654379,
+        12.834087366582507,
+        10.929497952579988
+      ],
+      "gt_bbox_xyxy": [
+        712.70336,
+        427.3948315,
+        873.67488,
+        682.9975425
+      ],
+      "pred_bbox_xyxy": [
+        694.74951171875,
+        414.31378173828125,
+        887.607177734375,
+        688.9755249023438
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0322_2018_Toyota_Camry_ASV70R_Ascent_sedan_2018-08-27_01.jpg",
+      "score_px": 11.623968164504978,
+      "oks": 0.7837960059406471,
+      "per_keypoint_px": [
+        11.008774198357187,
+        15.15035343274074,
+        8.712776862417003
+      ],
+      "gt_bbox_xyxy": [
+        97.96159999999999,
+        279.98162,
+        244.96832,
+        473.53689199999997
+      ],
+      "pred_bbox_xyxy": [
+        93.45756530761719,
+        278.6805725097656,
+        249.05531311035156,
+        475.5595397949219
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0095_Rear_Three_Quarter_View_of_a_New_Lexus_GX550_in_Cape_Town.jpg",
+      "score_px": 11.35688551098612,
+      "oks": 0.8973747875902692,
+      "per_keypoint_px": [
+        7.930612245095014,
+        12.375299593852056,
+        13.764744694011293
+      ],
+      "gt_bbox_xyxy": [
+        544.98432,
+        402.10695000000004,
+        772.31232,
+        674.33205
+      ],
+      "pred_bbox_xyxy": [
+        541.3532104492188,
+        401.9491882324219,
+        764.7005004882812,
+        673.2822265625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self/images/val/real_v1_self__wmc_0344_2020_Toyota_Camry_S-Edition_front.jpg",
+      "score_px": 10.875620880652114,
+      "oks": 0.8780111623677204,
+      "per_keypoint_px": [
+        12.798071136523099,
+        14.149322008269777,
+        5.679469497163465
+      ],
+      "gt_bbox_xyxy": [
+        434.93760000000003,
+        366.904552,
+        607.1744000000001,
+        655.724888
+      ],
+      "pred_bbox_xyxy": [
+        416.2135009765625,
+        362.70513916015625,
+        632.3272705078125,
+        664.6535034179688
+      ]
+    }
+  ]
+}

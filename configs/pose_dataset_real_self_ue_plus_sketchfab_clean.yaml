@@ -1,0 +1,22 @@
+# YOLO-pose config for mixed real/self + UE synthetic + clean Sketchfab geometry.
+#
+# Train sources:
+#   data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/train
+#   data/wheel_pose_dataset_ue_sketchfab_geometry_clean/train
+#
+# Val source:
+#   data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/val
+#
+# The val split intentionally keeps the existing real/self+UE validation
+# anchor so a Sketchfab geometry fine-tune cannot hide real-domain
+# regressions behind its own synthetic validation frames.
+
+path: data/wheel_pose_dataset_real_self_ue_plus_sketchfab_clean
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

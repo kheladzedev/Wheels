@@ -1,0 +1,439 @@
+{
+  "model": "runs/pose/wheel_real_v1_clean/weights/best.pt",
+  "data": "configs/pose_dataset_real_v1_clean.yaml",
+  "split": "val",
+  "device": "cpu",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 16,
+    "pred_wheels_above_conf": 16,
+    "matched": 12,
+    "false_negatives": 4,
+    "false_positives": 4,
+    "images": 15
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 19.208920038892757,
+      "mean": 17.775159852386363,
+      "p95": 23.755610179761465,
+      "p99": 24.20633680761643,
+      "n": 12
+    },
+    "point_b": {
+      "median": 22.95478164701348,
+      "mean": 26.563466247639173,
+      "p95": 49.14916634726845,
+      "p99": 55.63303164511129,
+      "n": 12
+    },
+    "point_c_disc_bottom": {
+      "median": 14.008554533048699,
+      "mean": 13.989182911741082,
+      "p95": 22.15574995912549,
+      "p99": 22.89036524102239,
+      "n": 12
+    }
+  },
+  "oks": {
+    "mean": 0.6472482337044315,
+    "n": 12
+  },
+  "rates": {
+    "false_negative_rate": 0.25,
+    "false_positive_rate": 0.25
+  },
+  "metrics_bbox": {
+    "mAP50": 0.7171666666666666,
+    "mAP50_95": 0.6697119047619047
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 19.208920038892757,
+            "mean": 17.775159852386363,
+            "p95": 23.755610179761465,
+            "p99": 24.20633680761643,
+            "n": 12
+          },
+          "point_b": {
+            "median": 22.95478164701348,
+            "mean": 26.563466247639173,
+            "p95": 49.14916634726845,
+            "p99": 55.63303164511129,
+            "n": 12
+          },
+          "point_c_disc_bottom": {
+            "median": 14.008554533048699,
+            "mean": 13.989182911741082,
+            "p95": 22.15574995912549,
+            "p99": 22.89036524102239,
+            "n": 12
+          }
+        },
+        "oks": {
+          "mean": 0.6472482337044315,
+          "n": 12
+        },
+        "n_matched": 12
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 19.208920038892757,
+            "mean": 17.775159852386363,
+            "p95": 23.755610179761465,
+            "p99": 24.20633680761643,
+            "n": 12
+          },
+          "point_b": {
+            "median": 22.95478164701348,
+            "mean": 26.563466247639173,
+            "p95": 49.14916634726845,
+            "p99": 55.63303164511129,
+            "n": 12
+          },
+          "point_c_disc_bottom": {
+            "median": 14.008554533048699,
+            "mean": 13.989182911741082,
+            "p95": 22.15574995912549,
+            "p99": 22.89036524102239,
+            "n": 12
+          }
+        },
+        "oks": {
+          "mean": 0.6472482337044315,
+          "n": 12
+        },
+        "n_matched": 12
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0023_View_of_a_car_parked_on_the_side_of_a_road_AM_79470-1.jpg",
+      "score_px": 32.07352268699757,
+      "oks": 0.5600257118631401,
+      "per_keypoint_px": [
+        20.84859213707868,
+        57.253997969571984,
+        18.11797795434204
+      ],
+      "gt_bbox_xyxy": [
+        333.00003749999996,
+        442.999872,
+        571.0004625,
+        766.000144
+      ],
+      "pred_bbox_xyxy": [
+        331.4862365722656,
+        443.4083251953125,
+        595.4618530273438,
+        764.3917236328125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0196_1942_Packard_Clipper_Club_Sedan_-_July_2024_-_Sarah_Stierch_02.jpg",
+      "score_px": 26.98307896203386,
+      "oks": 0.5567122848963164,
+      "per_keypoint_px": [
+        18.224670476725027,
+        42.51794047447466,
+        20.20662593490189
+      ],
+      "gt_bbox_xyxy": [
+        395.9993600000001,
+        646.9996799999999,
+        650.9996800000001,
+        876.0
+      ],
+      "pred_bbox_xyxy": [
+        398.8499450683594,
+        653.115966796875,
+        655.5950927734375,
+        878.123046875
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0197_1950_Mercury_Sport_Sedan_front_left_Cruisin_the_River_Lowellville_Car_Cruise_July_17_2023.jpg",
+      "score_px": 24.555503669648413,
+      "oks": 0.5150333947789323,
+      "per_keypoint_px": [
+        23.2946397649098,
+        28.967432368668142,
+        21.404438875367298
+      ],
+      "gt_bbox_xyxy": [
+        456.0,
+        451.99982399999993,
+        654.00064,
+        679.9994879999999
+      ],
+      "pred_bbox_xyxy": [
+        452.80828857421875,
+        450.3580017089844,
+        658.3562622070312,
+        678.4703369140625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0088_Cream_Trabant_601_S_three-quarter_back_view.jpg",
+      "score_px": 21.24510220063461,
+      "oks": 0.5361323814224624,
+      "per_keypoint_px": [
+        11.423431768784498,
+        29.23785577162272,
+        23.074019061496614
+      ],
+      "gt_bbox_xyxy": [
+        612.00064,
+        484.99968749999994,
+        781.0003199999999,
+        695.9998424999999
+      ],
+      "pred_bbox_xyxy": [
+        605.2685546875,
+        484.83050537109375,
+        783.79736328125,
+        698.1924438476562
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0250_2014_Suzuki_Karimun_Wagon_R_GL_Dilago_front.jpg",
+      "score_px": 18.073420412859416,
+      "oks": 0.5977115056597112,
+      "per_keypoint_px": [
+        14.48576278579265,
+        19.02078739000965,
+        20.71371106277594
+      ],
+      "gt_bbox_xyxy": [
+        596.0,
+        452.00015999999994,
+        743.0003200000001,
+        668.0001599999999
+      ],
+      "pred_bbox_xyxy": [
+        594.8421630859375,
+        456.4538269042969,
+        743.9669189453125,
+        664.78125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0224_1984_Ford_Mustang_GT_350_Hatchback_14373258196.jpg",
+      "score_px": 17.7465905129008,
+      "oks": 0.6981266267800023,
+      "per_keypoint_px": [
+        24.31901846458017,
+        15.709045118271728,
+        13.211707955850496
+      ],
+      "gt_bbox_xyxy": [
+        456.99968000000007,
+        464.99972849999995,
+        644.0,
+        702.9995234999999
+      ],
+      "pred_bbox_xyxy": [
+        457.88458251953125,
+        470.8985290527344,
+        639.8324584960938,
+        701.2481689453125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0296_BMW_E65_735i_Matte_Black_12.jpg",
+      "score_px": 17.427049360539367,
+      "oks": 0.6484880033585667,
+      "per_keypoint_px": [
+        13.611724911202202,
+        23.97602140519746,
+        14.693401765218445
+      ],
+      "gt_bbox_xyxy": [
+        393.99936,
+        555.99984,
+        580.99968,
+        743.9995200000001
+      ],
+      "pred_bbox_xyxy": [
+        393.3992919921875,
+        558.20654296875,
+        582.2999267578125,
+        742.269287109375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0095_Rear_Three_Quarter_View_of_a_New_Lexus_GX550_in_Cape_Town.jpg",
+      "score_px": 16.734073195343452,
+      "oks": 0.7301794768244328,
+      "per_keypoint_px": [
+        22.36083326201092,
+        23.72477540843445,
+        4.116610915584993
+      ],
+      "gt_bbox_xyxy": [
+        548.0,
+        409.99980000000005,
+        754.00064,
+        665.0
+      ],
+      "pred_bbox_xyxy": [
+        549.0090942382812,
+        404.52801513671875,
+        753.0134887695312,
+        661.5608520507812
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0085_Blue_Volvo_Amazon_three-quarter_back_view.jpg",
+      "score_px": 15.94420916461032,
+      "oks": 0.730454895515558,
+      "per_keypoint_px": [
+        20.193169601060482,
+        22.18478788559251,
+        5.454670007177977
+      ],
+      "gt_bbox_xyxy": [
+        414.0,
+        389.99983,
+        589.00032,
+        650.99973
+      ],
+      "pred_bbox_xyxy": [
+        417.196533203125,
+        388.333984375,
+        599.797119140625,
+        647.6368408203125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_clean/images/val/real_v1_clean__wmc_0098_White_Dodge_Challenger_SRT_three-quarter_back_view.jpg",
+      "score_px": 15.880584237253757,
+      "oks": 0.7429602598122856,
+      "per_keypoint_px": [
+        23.025618923227196,
+        18.850859942416015,
+        5.765273846118062
+      ],
+      "gt_bbox_xyxy": [
+        500.00064,
+        383.99980700000003,
+        704.00064,
+        617.999741
+      ],
+      "pred_bbox_xyxy": [
+        498.3396911621094,
+        385.3522033691406,
+        711.3785400390625,
+        616.9954833984375
+      ]
+    }
+  ]
+}

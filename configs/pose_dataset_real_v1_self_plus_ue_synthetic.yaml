@@ -1,0 +1,19 @@
+# YOLO-pose config for the mixed real+self + UE synthetic experiment.
+#
+# Source datasets:
+#   data/wheel_pose_dataset_real_v1_self
+#   data/wheel_pose_dataset_ue_synthetic
+#
+# Purpose: fold available model-based UE renders into the current real-data
+# champion training domain without replacing the production real validation
+# signal entirely.
+
+path: data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

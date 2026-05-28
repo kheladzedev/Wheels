@@ -1,0 +1,22 @@
+# YOLO-pose config for the UE synthetic batch.
+#
+# Source:
+#   data/incoming/ue_synthetic
+#
+# Converted with:
+#   src/convert_keypoint_incoming_to_yolo_pose.py
+#
+# Important caveat: this batch was converted from UE rim keypoints using
+# a 5-to-3 heuristic. It is valid for pipeline smoke tests and synthetic
+# pretraining experiments, but it is not clean AR ground truth for A/B
+# floor-ray points.
+
+path: data/wheel_pose_dataset_ue_synthetic
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

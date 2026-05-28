@@ -1,0 +1,439 @@
+{
+  "model": "runs/pose/runs/pose/wheel_real_v1_combined_s/weights/best.pt",
+  "data": "configs/pose_dataset_real_v1_combined.yaml",
+  "split": "val",
+  "device": "cpu",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 51,
+    "pred_wheels_above_conf": 77,
+    "matched": 47,
+    "false_negatives": 4,
+    "false_positives": 30,
+    "images": 42
+  },
+  "per_keypoint_pixel_error": {
+    "point_a": {
+      "median": 11.445875879326712,
+      "mean": 12.559780755115892,
+      "p95": 25.21274964906128,
+      "p99": 30.53234353854558,
+      "n": 47
+    },
+    "point_b": {
+      "median": 12.451300480453911,
+      "mean": 13.493507012760647,
+      "p95": 29.899229852168588,
+      "p99": 35.00001783101564,
+      "n": 47
+    },
+    "point_c_disc_bottom": {
+      "median": 9.954958646060069,
+      "mean": 10.536508666086752,
+      "p95": 21.57652411696622,
+      "p99": 26.189875805863505,
+      "n": 47
+    }
+  },
+  "oks": {
+    "mean": 0.7328587920321452,
+    "n": 47
+  },
+  "rates": {
+    "false_negative_rate": 0.0784313725490196,
+    "false_positive_rate": 0.38961038961038963
+  },
+  "metrics_bbox": {
+    "mAP50": 0.7859811806897259,
+    "mAP50_95": 0.5885482501309995
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 8.60938266232235,
+            "mean": 9.380170834838388,
+            "p95": 16.02920421133402,
+            "p99": 17.762079649799333,
+            "n": 8
+          },
+          "point_b": {
+            "median": 6.967466942289823,
+            "mean": 8.13239272348063,
+            "p95": 12.04476163810695,
+            "p99": 12.066666448170027,
+            "n": 8
+          },
+          "point_c_disc_bottom": {
+            "median": 8.780452470974236,
+            "mean": 7.652333507364435,
+            "p95": 11.099674700330615,
+            "p99": 11.13400389533073,
+            "n": 8
+          }
+        },
+        "oks": {
+          "mean": 0.49968514396131347,
+          "n": 8
+        },
+        "n_matched": 8
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 11.680803773512796,
+            "mean": 13.212008431070245,
+            "p95": 25.559808880174607,
+            "p99": 30.878990956907288,
+            "n": 39
+          },
+          "point_b": {
+            "median": 13.301963732583033,
+            "mean": 14.593222764407829,
+            "p95": 30.256266770666684,
+            "p99": 35.38220308399645,
+            "n": 39
+          },
+          "point_c_disc_bottom": {
+            "median": 11.300126859851726,
+            "mean": 11.128134339670819,
+            "p95": 22.191388445045828,
+            "p99": 26.704374869483424,
+            "n": 39
+          }
+        },
+        "oks": {
+          "mean": 0.7806892839441106,
+          "n": 39
+        },
+        "n_matched": 39
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "point_c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "point_a": {
+            "median": 11.445875879326712,
+            "mean": 12.559780755115892,
+            "p95": 25.21274964906128,
+            "p99": 30.53234353854558,
+            "n": 47
+          },
+          "point_b": {
+            "median": 12.451300480453911,
+            "mean": 13.493507012760647,
+            "p95": 29.899229852168588,
+            "p99": 35.00001783101564,
+            "n": 47
+          },
+          "point_c_disc_bottom": {
+            "median": 9.954958646060069,
+            "mean": 10.536508666086752,
+            "p95": 21.57652411696622,
+            "p99": 26.189875805863505,
+            "n": 47
+          }
+        },
+        "oks": {
+          "mean": 0.7328587920321452,
+          "n": 47
+        },
+        "n_matched": 47
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__real_006_car_1924_Alfa_Romeo_P2.jpg",
+      "score_px": 29.89379726960911,
+      "oks": 0.3766001974279713,
+      "per_keypoint_px": [
+        23.33556335149385,
+        37.19758303565537,
+        29.14824542167812
+      ],
+      "gt_bbox_xyxy": [
+        92.1536,
+        501.97386650000004,
+        305.06112,
+        709.2110695
+      ],
+      "pred_bbox_xyxy": [
+        89.888916015625,
+        497.0831298828125,
+        312.3792419433594,
+        711.2716064453125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__real_004_car_1900_Lux_Tonneau_Automuseum_Dr_Carl_Benz_2014_02.jpg",
+      "score_px": 25.61521823938123,
+      "oks": 0.5648524223285855,
+      "per_keypoint_px": [
+        25.08548744650077,
+        29.627180902306335,
+        22.13298636933659
+      ],
+      "gt_bbox_xyxy": [
+        180.38976000000002,
+        466.11684,
+        439.39648,
+        687.3548400000001
+      ],
+      "pred_bbox_xyxy": [
+        178.042236328125,
+        446.2467041015625,
+        446.35162353515625,
+        703.3250732421875
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__real_006_car_1924_Alfa_Romeo_P2.jpg",
+      "score_px": 24.450097205509806,
+      "oks": 0.5434603762349133,
+      "per_keypoint_px": [
+        25.267290593015783,
+        30.015822259252413,
+        18.06717876426122
+      ],
+      "gt_bbox_xyxy": [
+        343.74208000000004,
+        470.2516495,
+        561.1872000000001,
+        694.0779964999999
+      ],
+      "pred_bbox_xyxy": [
+        350.6094970703125,
+        464.697509765625,
+        560.524658203125,
+        700.99853515625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__real_006_car_1924_Alfa_Romeo_P2.jpg",
+      "score_px": 20.307988825195597,
+      "oks": 0.632695531586971,
+      "per_keypoint_px": [
+        32.52556619412545,
+        5.681393155032367,
+        22.717007126428967
+      ],
+      "gt_bbox_xyxy": [
+        988.2867200000001,
+        426.5925505,
+        1199.79392,
+        658.2989115
+      ],
+      "pred_bbox_xyxy": [
+        991.2713623046875,
+        421.77117919921875,
+        1206.4659423828125,
+        667.3955688476562
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__wmc_0065_Red_Saab_900_three-quarter_back_view.jpg",
+      "score_px": 19.921097122186595,
+      "oks": 0.5692466057506642,
+      "per_keypoint_px": [
+        28.192473464603992,
+        18.236426834437374,
+        13.334391067518421
+      ],
+      "gt_bbox_xyxy": [
+        391.60768,
+        417.2105685,
+        546.9856,
+        639.5887875
+      ],
+      "pred_bbox_xyxy": [
+        379.09521484375,
+        410.0497741699219,
+        541.9647827148438,
+        648.220703125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__wmc_0227_1989_Mitsubishi_Colt_RE_XL_5-door_hatchback_14976570649.jpg",
+      "score_px": 19.81258261774944,
+      "oks": 0.5902380919216719,
+      "per_keypoint_px": [
+        14.46166772035025,
+        24.69796793812935,
+        20.27811219476872
+      ],
+      "gt_bbox_xyxy": [
+        530.00064,
+        432.00036,
+        703.0003199999999,
+        647.00028
+      ],
+      "pred_bbox_xyxy": [
+        524.2308349609375,
+        431.15753173828125,
+        703.4508056640625,
+        645.4244995117188
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__wmc_0023_View_of_a_car_parked_on_the_side_of_a_road_AM_79470-1.jpg",
+      "score_px": 19.488835314864847,
+      "oks": 0.7642573709409722,
+      "per_keypoint_px": [
+        11.16894387131404,
+        32.42026737339509,
+        14.87729469988541
+      ],
+      "gt_bbox_xyxy": [
+        333.00003749999996,
+        442.999872,
+        571.0004625,
+        766.000144
+      ],
+      "pred_bbox_xyxy": [
+        310.66802978515625,
+        435.8736267089844,
+        591.9398193359375,
+        774.7599487304688
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__wmc_0199_1954_Chevrolet_Bel_Air_4-Door_Sedan_front_left_2022_Ellwood_City_Fall_Fest_Car_Cruise.jpg",
+      "score_px": 17.642444826366233,
+      "oks": 0.7309076264805731,
+      "per_keypoint_px": [
+        21.0243139521623,
+        18.26322128575524,
+        13.639799241181167
+      ],
+      "gt_bbox_xyxy": [
+        533.91424,
+        458.69657900000004,
+        731.8905599999999,
+        712.513765
+      ],
+      "pred_bbox_xyxy": [
+        523.42236328125,
+        454.4983825683594,
+        719.53173828125,
+        712.0733642578125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__real_004_car_1900_Lux_Tonneau_Automuseum_Dr_Carl_Benz_2014_02.jpg",
+      "score_px": 17.556959131238198,
+      "oks": 0.7558117287115454,
+      "per_keypoint_px": [
+        23.884532037897,
+        15.165574172365723,
+        13.620771183451872
+      ],
+      "gt_bbox_xyxy": [
+        837.9564799999999,
+        471.48192000000006,
+        1097.7875199999999,
+        688.71888
+      ],
+      "pred_bbox_xyxy": [
+        832.0380859375,
+        445.2444763183594,
+        1098.9918212890625,
+        707.1531982421875
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_combined/images/val/real_v1_combined__wmc_0343_2018_Toyota_Camry_2.jpg",
+      "score_px": 15.685744099533279,
+      "oks": 0.6939781618654955,
+      "per_keypoint_px": [
+        16.116804630808225,
+        19.44711957255938,
+        11.493308095232232
+      ],
+      "gt_bbox_xyxy": [
+        597.0003199999999,
+        401.000064,
+        750.0,
+        624.0003839999999
+      ],
+      "pred_bbox_xyxy": [
+        580.0877685546875,
+        398.21063232421875,
+        754.610107421875,
+        627.7090454101562
+      ]
+    }
+  ]
+}
