@@ -1,5 +1,38 @@
 # Export Parity Audit
 
+> **Two distinct "parity" axes — do not conflate.**
+> 1. **PT-vs-exported runtime parity** (ONNX/TFLite vs PyTorch) — the
+>    table below; still uncertified under the strict policy.
+> 2. **UE camera-pose parity** (3D-eval) — **CERTIFIED 2026-05-29** on the
+>    MCP `WheelsDataset_v0_2` export; see the section at the bottom.
+
+## UE camera-pose parity (3D-eval) — CERTIFIED 2026-05-29
+
+The long-standing blocker ("the UE Roll/Pitch sign/zero convention must
+be confirmed against one clean UE export frame before the pose is
+trusted") is **resolved with evidence**. The MCP rich annotations pair
+3D `keypoints_world` with 2D `keypoints_image` and the full camera pose,
+so the UE→OpenCV convention is verifiable by reprojection.
+
+`scripts/certify_ue_export_parity.py` builds the camera with
+`src/camera_from_ue_pose.py` and reprojects every exported world keypoint:
+
+- **Result: `certified: true`, max reprojection ≈ 0.0002 px** over all
+  1000 frames (`outputs/eval3d/export_parity_v0_2.json`).
+- Certified convention: **FOV is horizontal**; UE world is left-handed →
+  harness right-handed via a single **Y-negation**; forward from the
+  `[roll, pitch, yaw]` rotator; roll about the optical axis.
+- Regression-pinned by `tests/test_camera_from_ue_pose.py` (real-frame
+  fixture, asserts sub-px).
+
+This certifies camera **geometry only**. It does NOT make the export a
+model gate: v0_2's `a`/`b` are rim spheres (z≈28 cm), not the floor-ray
+points the 2026-05-14 contract requires, and the 2D points are ground
+truth, not model predictions. See `docs/EVAL3D_AND_3D_LOSS_STATUS.md`
+("Real export — what landed 2026-05-29") for the remaining blockers.
+
+---
+
 Diagnostic summary for PT-vs-exported parity drift reports.
 
 - Audit OK: True

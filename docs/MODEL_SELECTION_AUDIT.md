@@ -9,6 +9,12 @@ Machine-readable champion retention and candidate promotion guard.
 - Promotion required: 0
 - Failures: none
 
+## 3D Disc-Height Acceptance
+
+- Status: `insufficient_evidence`
+- Detail: source not a trusted real gate (gate_status='informational', source='real_geometry_gt2d'); synthetic/unverified reports validate plumbing only, never model quality
+- Promotion blocked on 3D: none
+
 ## Champion Evidence
 
 - Anchor eval: `outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s.json`
