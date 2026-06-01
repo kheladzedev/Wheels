@@ -1,0 +1,20 @@
+# YOLO-pose config for Wheels Dataset v0.1 (UE synthetic baseline) — scene-clean split.
+#
+# Derived from pose_dataset_ue_synthetic_v0_1.yaml. The original random 80/20 split
+# had 8 train/val hash-duplicate images (frames 993-1000 shared content with 8 val frames
+# due to the UE capture loop repeating camera poses). This config uses a scene-aware split
+# produced by scripts/split_yolo_pose_by_scene.py --val-scenes 8,9, so scenes 0-7 are
+# train and scenes 8-9 (frames 801-1000) are val. No hash-duplicate leakage.
+#
+# Source dataset: data/incoming/ue_synthetic_v0_1 (1000 frames, seed=42).
+# Scene assignment: scripts/assign_scene_ids.py --frames-per-run 100
+
+path: data/wheel_pose_dataset_ue_synthetic_v0_1_clean
+train: images/train
+val: images/val
+
+names:
+  0: wheel
+
+kpt_shape: [3, 3]
+flip_idx: [1, 0, 2]

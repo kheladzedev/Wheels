@@ -34,6 +34,12 @@ def fmt(value: Any) -> str:
     return str(value)
 
 
+def _blockers_text(blockers: Any) -> str:
+    if isinstance(blockers, list) and blockers:
+        return ", ".join(str(item) for item in blockers)
+    return "нет"
+
+
 def build_report() -> str:
     suite = read_json(Path("outputs/production_audit/audit_suite_status.json"))
     trace = read_json(Path("outputs/production_audit/requirements_traceability.json"))
@@ -44,11 +50,15 @@ def build_report() -> str:
     dataset = read_json(Path("outputs/production_audit/dataset_audit.json"))
     release = read_json(Path("outputs/production_audit/release_integrity.json"))
     tflite_cert = read_json(Path("outputs/production_audit/tflite_certification.json"))
+    coreml_cert = read_json(Path("outputs/production_audit/coreml_certification.json"))
     export_cert = read_json(Path("outputs/production_audit/export_certification.json"))
     pt_real = read_json(Path("outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_on_self_val.json"))
     tflite_eval = read_json(Path("outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_tflite_on_self_plus_ue_val.json"))
 
     blockers = suite.get("production_blockers", [])
+    integration_ready = suite.get("integration_ready")
+    production_ready = suite.get("production_ready")
+    blockers_text = _blockers_text(blockers)
     evidence_checks = evidence.get("checks", []) if isinstance(evidence.get("checks"), list) else []
     evidence_ready = evidence.get("production_evidence_ready", "n/a")
     trace_summary = trace.get("summary", {}) if isinstance(trace.get("summary"), dict) else {}
@@ -63,18 +73,38 @@ def build_report() -> str:
     if not missing_lines:
         missing_lines.append("- Нет незакрытых внешних evidence blockers.")
 
+    if integration_ready is True:
+        summary_line = (
+            "Вывод: модель и export package готовы для интеграции и smoke-проверок. "
+            "Полный production gate не закрыт, потому что не хватает внешних Android/AR evidence artifacts."
+        )
+        final_line = (
+            "На текущем evidence модель является integration-ready, но не full production-ready. "
+            "Блокеры не связаны с отсутствием модели/export package: они связаны с отсутствием "
+            "реального Android-device LiteRT отчета, human-labelled AR holdout и AR-side 3D replay validation."
+        )
+    else:
+        summary_line = (
+            "Вывод: integration gate сейчас не закрыт. Модель и export package существуют, "
+            f"но текущий evidence блокируют: {blockers_text}."
+        )
+        final_line = (
+            "На текущем evidence модель не является integration-ready. Сначала нужно закрыть "
+            f"блокеры: {blockers_text}."
+        )
+
     lines = [
         "# Executive Report RU",
         "",
         "## Короткий статус",
         "",
-        f"- Integration ready: {suite.get('integration_ready', 'n/a')}",
-        f"- Production ready: {suite.get('production_ready', 'n/a')}",
+        f"- Integration ready: {integration_ready if integration_ready is not None else 'n/a'}",
+        f"- Production ready: {production_ready if production_ready is not None else 'n/a'}",
         f"- Audit suite OK: {suite.get('ok', 'n/a')}",
         f"- Production evidence audit ready: {evidence_ready}",
-        f"- Production blockers: {', '.join(blockers) if isinstance(blockers, list) else 'n/a'}",
+        f"- Production blockers: {blockers_text if isinstance(blockers, list) else 'n/a'}",
         "",
-        "Вывод: модель и export package готовы для интеграции и smoke-проверок. Полный production gate не закрыт, потому что не хватает внешних Android/AR evidence artifacts.",
+        summary_line,
         "",
         "## Что сделано",
         "",
@@ -98,12 +128,14 @@ def build_report() -> str:
         f"failures={spec_compliance.get('failures', [])}.",
         "- ONNX/TFLite export package сертифицирован по calibrated backend policy.",
         "- TFLite/LiteRT desktop package сертифицирован; Android-device runtime validation вынесен отдельным production blocker.",
+        "- CoreML `.mlmodel` package сертифицирован как desktop/iOS handoff artifact; iOS-device runtime validation остается на стороне приложения.",
         "",
         "## Champion model",
         "",
         "- PT: `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt`",
         "- ONNX: `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx`",
         "- TFLite: `outputs/production_audit/tflite_export/best_float32.tflite`",
+        "- CoreML: `outputs/production_audit/coreml_export/best.mlmodel`",
         "- Training data: `configs/pose_dataset_real_v1_self_plus_ue_synthetic.yaml`",
         "",
         "## Основные метрики",
@@ -115,6 +147,7 @@ def build_report() -> str:
         f"- TFLite mixed-anchor OKS: {fmt(metric(tflite_eval, 'oks', 'mean'))}",
         f"- Export backend certification: {export_cert.get('certified', 'n/a')} (`{export_cert.get('scope', 'n/a')}`)",
         f"- TFLite package certification: {tflite_cert.get('certified', 'n/a')} (`{tflite_cert.get('scope', 'n/a')}`)",
+        f"- CoreML package certification: {coreml_cert.get('certified', 'n/a')} (`{coreml_cert.get('scope', 'n/a')}`)",
         "",
         "## Соответствие требованиям",
         "",
@@ -143,7 +176,7 @@ def build_report() -> str:
         "",
         "## Финальный вывод",
         "",
-        "На текущем evidence модель является integration-ready, но не full production-ready. Блокеры не связаны с отсутствием модели/export package: они связаны с отсутствием реального Android-device LiteRT отчета, human-labelled AR holdout и AR-side 3D replay validation.",
+        final_line,
     ]
     _ = dataset_counts  # keep local audit data intentionally loaded for future extensions
     return "\n".join(lines) + "\n"

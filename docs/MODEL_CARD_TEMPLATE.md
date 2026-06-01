@@ -77,6 +77,9 @@ treats `UNKNOWN` and missing fields as failing gates.
 
 ## 7. Export formats
 
+> Note (2026-05-30): v1 ships Android-only (LiteRT/TFLite). iOS/CoreML is
+> deferred; expect `CoreML: NOT_EXPORTED` (zero CoreML artifacts today).
+
 - **PT:** `runs/pose/<name>/weights/best.pt` (always).
 - **ONNX:** path + opset.
 - **CoreML:** path or `NOT_EXPORTED`.

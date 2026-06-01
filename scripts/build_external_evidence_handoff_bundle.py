@@ -16,6 +16,9 @@ ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 DEFAULT_BUNDLE_ARTIFACTS = [
     "outputs/production_audit/tflite_export/best_float32.tflite",
+    "outputs/production_audit/coreml_export/best.mlmodel",
+    "outputs/production_audit/coreml_certification.json",
+    "outputs/production_audit/data_readiness_decision.json",
     "outputs/production_audit/android_litert_device_report.template.json",
     "outputs/production_audit/ar_device_holdout_provenance.template.json",
     "outputs/production_audit/ar_3d_replay.template.jsonl",
@@ -28,6 +31,8 @@ DEFAULT_BUNDLE_ARTIFACTS = [
     "ar_replay_harness/README.md",
     "ar_replay_harness/ArReplayLogger.kt",
     "docs/ANDROID_LITERT_DEVICE_REPORT.md",
+    "docs/COREML_CERTIFICATION.md",
+    "docs/DATA_READINESS_DECISION.md",
     "docs/AR_ML_CONTRACT.md",
     "docs/AR_MOCK_LOG_CONTRACT.md",
     "docs/PRODUCTION_EVIDENCE_CHECKLIST.md",

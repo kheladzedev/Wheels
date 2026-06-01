@@ -18,10 +18,10 @@ import yaml
 
 DEFAULT_RUNS_ROOT = Path("runs/pose")
 DEFAULT_EVAL_ROOT = Path("outputs/eval")
-DEFAULT_DEPLOYMENT_EXPORT_ROOT = Path("outputs/production_audit/tflite_export")
+DEFAULT_DEPLOYMENT_EXPORT_ROOT = Path("outputs/production_audit")
 DEFAULT_JSON_OUT = Path("outputs/production_audit/model_inventory.json")
 DEFAULT_MD_OUT = Path("docs/MODEL_INVENTORY.md")
-WEIGHT_EXTS = (".pt", ".onnx", ".tflite")
+WEIGHT_EXTS = (".pt", ".onnx", ".tflite", ".mlmodel")
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -208,6 +208,7 @@ def build_inventory(
             "pt_artifacts": sum(1 for a in all_artifacts if a["kind"] == "pt"),
             "onnx_artifacts": sum(1 for a in all_artifacts if a["kind"] == "onnx"),
             "tflite_artifacts": sum(1 for a in all_artifacts if a["kind"] == "tflite"),
+            "coreml_artifacts": sum(1 for a in all_artifacts if a["kind"] == "mlmodel"),
             "eval_reports": len(eval_reports),
             "runs_with_eval": sum(1 for run in runs if run.get("eval_reports")),
             "runs_with_warnings": sum(1 for run in runs if run.get("warnings")),
@@ -238,7 +239,11 @@ def render_markdown(inventory: dict[str, Any]) -> str:
         "## Summary",
         "",
         f"- Train runs: {counts['train_runs']}",
-        f"- Artifacts: {counts['artifacts']} (`.pt`={counts['pt_artifacts']}, `.onnx`={counts['onnx_artifacts']}, `.tflite`={counts['tflite_artifacts']})",
+        (
+            f"- Artifacts: {counts['artifacts']} (`.pt`={counts['pt_artifacts']}, "
+            f"`.onnx`={counts['onnx_artifacts']}, `.tflite`={counts['tflite_artifacts']}, "
+            f"`.mlmodel`={counts['coreml_artifacts']})"
+        ),
         f"- Run artifacts: {counts['run_artifacts']}",
         f"- Deployment artifacts: {counts['deployment_artifacts']}",
         f"- Eval reports: {counts['eval_reports']}",

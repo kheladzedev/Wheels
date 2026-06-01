@@ -1,5 +1,12 @@
 # Session log 2026-05-23
 
+> **CORRECTION 2026-05-30 (SUPERSEDED).** The MN2 "production handoff / shipped to
+> AR" narrative in this log is unbacked: no MN2 checkpoint, package, or `.tflite`
+> exists on disk (`outputs/model_packages/` is absent). The real shipped champion
+> is the YOLO11s-pose model at
+> `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt`. Treat the
+> MN2 retrain notes below as historical experiment records, not ground truth.
+
 ## What worked
 
 ### Built reusable UE automation stack

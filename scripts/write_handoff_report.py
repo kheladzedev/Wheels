@@ -36,6 +36,23 @@ def _metric_line(report: dict) -> str:
     )
 
 
+def _one_gate_status(report: dict) -> str:
+    if report.get("ok") is True:
+        return "PASS"
+    failed = report.get("failed", [])
+    if failed:
+        return f"FAIL failed={failed}"
+    return "FAIL"
+
+
+def _gate_status_line(integration_gate: dict, production_gate: dict) -> str:
+    return (
+        "- Integration gate: "
+        f"{_one_gate_status(integration_gate)}; production gate: "
+        f"{_one_gate_status(production_gate)}."
+    )
+
+
 def main() -> int:
     args = readiness.parse_args([])
     checks = readiness.collect_checks(args)
@@ -52,6 +69,7 @@ def main() -> int:
         Path("outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_tflite_on_self_plus_ue_val.json")
     )
     tflite_cert = _read_json(Path("outputs/production_audit/tflite_certification.json"))
+    coreml_cert = _read_json(Path("outputs/production_audit/coreml_certification.json"))
     model_inventory = _read_json(Path("outputs/production_audit/model_inventory.json"))
     model_selection = _read_json(Path("outputs/production_audit/model_selection_audit.json"))
     spec_compliance = _read_json(Path("outputs/production_audit/spec_compliance_audit.json"))
@@ -63,6 +81,8 @@ def main() -> int:
     objective_audit = _read_json(Path("outputs/production_audit/objective_completion_audit.json"))
     export_parity = _read_json(Path("outputs/production_audit/export_parity_audit.json"))
     export_certification = _read_json(Path("outputs/production_audit/export_certification.json"))
+    integration_gate = _read_json(Path("outputs/production_audit/integration_gate.json"))
+    production_gate = _read_json(Path("outputs/production_audit/production_gate.json"))
     perf_pt = performance_audit.get("benchmarks", {}).get("pytorch_cpu", {})
     perf_onnx = performance_audit.get("benchmarks", {}).get("onnx_cpu", {})
     perf_litert = performance_audit.get("benchmarks", {}).get("litert_cpu_smoke", {})
@@ -102,7 +122,8 @@ def main() -> int:
 - Champion ONNX drift diagnostic: {check_by_name['champion_onnx_drift_diagnostic'].detail}
 - Champion TFLite certification diagnostic: {check_by_name['champion_tflite_certification_diagnostic'].detail}
 - Champion TFLite float32: `{tflite_cert.get('artifact', {}).get('path', 'n/a')}`; aggregate eval `{_metric_line(tflite_eval)}`; certified={tflite_cert.get('certified', False)}.
-- Integration gate: `outputs/production_audit/integration_gate.json` passes; production gate `outputs/production_audit/production_gate.json` fails by design until deployment blockers are closed.
+- Champion CoreML mlmodel: `{coreml_cert.get('artifact', {}).get('path', 'n/a')}`; certified={coreml_cert.get('certified', False)}; scope={coreml_cert.get('scope', 'n/a')}.
+{_gate_status_line(integration_gate, production_gate)}
 - Sketchfab/Objaverse pseudo-label diagnostic: {check_by_name['ue_sketchfab_pseudo_yield_diagnostic'].detail}
 
 ## Champion Eval
@@ -161,6 +182,9 @@ def main() -> int:
 - Runtime contract audit: `outputs/production_audit/runtime_contract_audit.json`
 - Model package manifest: `outputs/production_audit/model_package_manifest.json`
 - TFLite certification report: `outputs/production_audit/tflite_certification.json`
+- CoreML artifact: `outputs/production_audit/coreml_export/best.mlmodel`
+- CoreML certification report: `outputs/production_audit/coreml_certification.json`
+- CoreML certification doc: `docs/COREML_CERTIFICATION.md`
 - LiteRT runtime smoke: `outputs/production_audit/litert_runtime_smoke.json`
 - Multi-sample export drift checker: `src/check_export_drift.py`
 - LiteRT runtime checker: `src/check_litert_runtime.py`

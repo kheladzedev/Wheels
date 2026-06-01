@@ -54,6 +54,7 @@ def test_release_integrity_includes_objective_completion_audit_artifacts():
 def test_release_integrity_includes_final_report_source_runners_only():
     assert "src/model_selection_audit.py" in DEFAULT_REQUIRED_ARTIFACTS
     assert "src/spec_compliance_audit.py" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "src/coreml_certification.py" in DEFAULT_REQUIRED_ARTIFACTS
     assert "src/report_consistency_audit.py" in DEFAULT_REQUIRED_ARTIFACTS
     assert "scripts/write_production_audit_report.py" in DEFAULT_REQUIRED_ARTIFACTS
     assert "scripts/write_handoff_report.py" in DEFAULT_REQUIRED_ARTIFACTS
@@ -67,6 +68,18 @@ def test_release_integrity_tracks_intake_preflight_separately_from_final_status(
     assert "outputs/production_audit/production_evidence_intake_preflight_status.json" in DEFAULT_REQUIRED_ARTIFACTS
     assert "outputs/production_audit/production_evidence_intake_status.json" not in DEFAULT_REQUIRED_ARTIFACTS
     assert "outputs/production_audit/production_evidence_intake_status.json" in PRODUCTION_EVIDENCE_RELEASE_ARTIFACTS
+
+
+def test_release_integrity_includes_coreml_ios_handoff_artifacts():
+    assert "outputs/production_audit/coreml_export/best.mlmodel" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "outputs/production_audit/coreml_certification.json" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "docs/COREML_CERTIFICATION.md" in DEFAULT_REQUIRED_ARTIFACTS
+
+
+def test_release_integrity_includes_data_readiness_decision_artifacts():
+    assert "src/data_readiness_decision.py" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "outputs/production_audit/data_readiness_decision.json" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "docs/DATA_READINESS_DECISION.md" in DEFAULT_REQUIRED_ARTIFACTS
 
 
 def test_release_integrity_rejects_self_referential_artifacts(tmp_path):

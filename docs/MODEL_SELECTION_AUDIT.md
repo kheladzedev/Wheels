@@ -12,7 +12,7 @@ Machine-readable champion retention and candidate promotion guard.
 ## 3D Disc-Height Acceptance
 
 - Status: `insufficient_evidence`
-- Detail: source not a trusted real gate (gate_status='informational', source='real_geometry_gt2d'); synthetic/unverified reports validate plumbing only, never model quality
+- Detail: no eval3d report supplied — data-blocked: needs a floor-ray correct export + model-predicted A/B/C (see docs/EVAL3D_AND_3D_LOSS_STATUS.md, docs/EXPORT_PARITY_AUDIT.md)
 - Promotion blocked on 3D: none
 
 ## Champion Evidence

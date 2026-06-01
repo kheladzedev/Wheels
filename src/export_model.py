@@ -33,6 +33,8 @@ Usage:
     python src/export_model.py --model runs/pose/wheel_v3/weights/best.pt \\
         --format coreml --imgsz 640
     python src/export_model.py --model runs/pose/wheel_v3/weights/best.pt \\
+        --format mlmodel --imgsz 640 --no-sanity
+    python src/export_model.py --model runs/pose/wheel_v3/weights/best.pt \\
         --format tflite --int8
 
 TFLite needs ``tensorflow`` in the venv — Ultralytics will surface its own
@@ -65,7 +67,7 @@ DEFAULT_CONF = 0.25
 DEFAULT_IOU = 0.45
 DEFAULT_MAX_DET = 20
 
-VALID_FORMATS = ("onnx", "coreml", "tflite")
+VALID_FORMATS = ("onnx", "coreml", "mlmodel", "tflite")
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 DATASET_VAL_DIR = Path("data/wheel_dataset/images/val")
@@ -409,7 +411,9 @@ def parse_args() -> argparse.Namespace:
         choices=VALID_FORMATS,
         help=(
             "Target export format. Final production format pending Q10 in "
-            "docs/QUESTIONS_FOR_TEAM.md."
+            "docs/QUESTIONS_FOR_TEAM.md. Use 'mlmodel' for legacy CoreML "
+            "neuralnetwork export when Python/coremltools cannot write "
+            "ML Program .mlpackage blobs."
         ),
     )
     p.add_argument(

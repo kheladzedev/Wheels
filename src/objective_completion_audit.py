@@ -26,6 +26,7 @@ MIN_UE_CLEAN_WHEELS = 500
 PT_CHAMPION = Path("runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt")
 ONNX_CHAMPION = Path("runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx")
 TFLITE_CHAMPION = Path("outputs/production_audit/tflite_export/best_float32.tflite")
+COREML_CHAMPION = Path("outputs/production_audit/coreml_export/best.mlmodel")
 
 
 @dataclass
@@ -104,6 +105,7 @@ def build_audit() -> dict[str, Any]:
     production_gate = read_json(Path("outputs/production_audit/production_gate.json"))
     export_certification = read_json(Path("outputs/production_audit/export_certification.json"))
     tflite_certification = read_json(Path("outputs/production_audit/tflite_certification.json"))
+    coreml_certification = read_json(Path("outputs/production_audit/coreml_certification.json"))
     handoff_manifest = read_json(
         Path("outputs/production_audit/external_evidence_handoff_bundle_manifest.json")
     )
@@ -119,7 +121,7 @@ def build_audit() -> dict[str, Any]:
     clean_glbs = count_files(MODEL_POOL_ROOT, "*.glb")
     rejected_glbs = count_files(MODEL_POOL_ROOT / "rejected", "*.glb")
     ue_images, ue_wheels = count_wheels(UE_CLEAN_ROOT)
-    champion_files = [PT_CHAMPION, ONNX_CHAMPION, TFLITE_CHAMPION]
+    champion_files = [PT_CHAMPION, ONNX_CHAMPION, TFLITE_CHAMPION, COREML_CHAMPION]
     champion_present = all(path.is_file() for path in champion_files)
     handoff_hash_match = (
         bool(handoff_manifest.get("bundle_sha256"))
@@ -198,21 +200,30 @@ def build_audit() -> dict[str, Any]:
         ),
         req(
             "champion_artifacts_present",
-            "Champion PT/ONNX/TFLite artifacts present",
+            "Champion PT/ONNX/TFLite/CoreML artifacts present",
             champion_present,
             "; ".join(str(path) for path in champion_files),
             ", ".join(f"{path.name}={path.is_file()}" for path in champion_files),
         ),
         req(
             "desktop_export_certified",
-            "Desktop ONNX/TFLite export certification passed",
-            bool(export_certification.get("certified")) and bool(tflite_certification.get("certified")),
-            "outputs/production_audit/export_certification.json; outputs/production_audit/tflite_certification.json",
+            "Desktop ONNX/TFLite/CoreML export certification passed",
+            (
+                bool(export_certification.get("certified"))
+                and bool(tflite_certification.get("certified"))
+                and bool(coreml_certification.get("certified"))
+            ),
+            (
+                "outputs/production_audit/export_certification.json; "
+                "outputs/production_audit/tflite_certification.json; "
+                "outputs/production_audit/coreml_certification.json"
+            ),
             (
                 f"export_certified={export_certification.get('certified', 'n/a')}, "
-                f"tflite_certified={tflite_certification.get('certified', 'n/a')}"
+                f"tflite_certified={tflite_certification.get('certified', 'n/a')}, "
+                f"coreml_certified={coreml_certification.get('certified', 'n/a')}"
             ),
-            present=bool(export_certification) and bool(tflite_certification),
+            present=bool(export_certification) and bool(tflite_certification) and bool(coreml_certification),
         ),
         req(
             "integration_gate_passed",

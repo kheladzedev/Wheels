@@ -9,8 +9,8 @@ Desktop-local inference latency diagnostic for the current wheel-pose release ar
 
 | Runtime | OK | Device | Runs | Mean ms | P50 ms | P95 ms | Detections/image |
 |---|---:|---|---:|---:|---:|---:|---:|
-| pytorch_cpu | True | cpu | 16 | 41.208 | 41.472 | 51.491 | 1.750 |
-| onnx_cpu | True | cpu | 16 | 37.600 | 35.851 | 49.507 | 1.875 |
+| pytorch_cpu | True | cpu | 16 | 41.965 | 41.802 | 52.741 | 1.750 |
+| onnx_cpu | True | cpu | 16 | 39.092 | 37.821 | 50.990 | 1.875 |
 | litert_cpu_smoke | True | ai_edge_litert | 10 | 269.127 | 268.753 | 271.012 | n/a |
 
 ## Notes

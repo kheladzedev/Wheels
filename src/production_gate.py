@@ -7,6 +7,7 @@ import json
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -48,7 +49,9 @@ def file_gate(name: str, path: Path, severity: str = "fail") -> GateItem:
     return GateItem(name, path.is_file(), severity, str(path))
 
 
-def certification_gate(name: str, path: Path, severity: str = "production_fail") -> GateItem:
+def certification_gate(
+    name: str, path: Path, severity: str = "production_fail"
+) -> GateItem:
     report = read_json(path)
     certified = strict_true(report.get("certified", False))
     if not path.is_file():
@@ -60,7 +63,9 @@ def certification_gate(name: str, path: Path, severity: str = "production_fail")
     return GateItem(name, certified, severity, detail)
 
 
-def report_ok_gate(name: str, path: Path, severity: str = "production_fail") -> GateItem:
+def report_ok_gate(
+    name: str, path: Path, severity: str = "production_fail"
+) -> GateItem:
     report = read_json(path)
     ok = strict_true(report.get("ok", False))
     if not path.is_file():
@@ -71,7 +76,33 @@ def report_ok_gate(name: str, path: Path, severity: str = "production_fail") -> 
     return GateItem(name, ok, severity, detail)
 
 
-def evidence_ready_gate(name: str, path: Path, severity: str = "production_fail") -> GateItem:
+def dataset_audit_gate(
+    name: str, path: Path, severity: str = "fail"
+) -> GateItem:
+    report = read_json(path)
+    gate = report.get("gate") if isinstance(report.get("gate"), dict) else None
+    if gate is not None:
+        ok = strict_true(gate.get("ok", False))
+    else:
+        ok = strict_true(report.get("ok", False))
+    if not path.is_file():
+        detail = f"missing: {path}"
+    elif gate is not None:
+        detail = (
+            f"gate_ok={ok}, overall_ok={report.get('ok', False)}, "
+            f"scope={gate.get('scope', 'n/a')}, "
+            f"failed_configs={gate.get('failed_configs', [])}, "
+            f"missing_configs={gate.get('missing_configs', [])}"
+        )
+    else:
+        failures = report.get("failures", [])
+        detail = f"ok={ok}, failures={failures if failures else '[]'}"
+    return GateItem(name, ok, severity, detail)
+
+
+def evidence_ready_gate(
+    name: str, path: Path, severity: str = "production_fail"
+) -> GateItem:
     report = read_json(path)
     ready = strict_true(report.get("production_evidence_ready", False))
     if not path.is_file():
@@ -89,32 +120,83 @@ def eval_quality_gate(
     min_map50: float,
     min_oks: float,
     max_fn: float,
+    max_fp: float = 1.0,
     severity: str = "production_fail",
 ) -> GateItem:
     report = read_json(path)
     map50 = metric(report, "metrics_bbox", "mAP50", default=0.0) or 0.0
     oks = metric(report, "oks", "mean", default=0.0) or 0.0
     fn = metric(report, "rates", "false_negative_rate", default=1.0) or 1.0
-    ok = path.is_file() and map50 >= min_map50 and oks >= min_oks and fn <= max_fn
+    fp = metric(report, "rates", "false_positive_rate", default=1.0) or 1.0
+    ok = (
+        path.is_file()
+        and map50 >= min_map50
+        and oks >= min_oks
+        and fn <= max_fn
+        and fp <= max_fp
+    )
     if not path.is_file():
         detail = f"missing: {path}"
     else:
         detail = (
             f"bbox_mAP50={map50:.3f}>={min_map50:.3f}, "
-            f"OKS={oks:.3f}>={min_oks:.3f}, FN={fn:.3f}<={max_fn:.3f}"
+            f"OKS={oks:.3f}>={min_oks:.3f}, FN={fn:.3f}<={max_fn:.3f}, "
+            f"FP={fp:.3f}<={max_fp:.3f}"
         )
     return GateItem(name, ok, severity, detail)
 
 
+def real_quality_metrics(
+    champion_real_eval: Path,
+    operating_point_audit: Path | None = None,
+) -> dict[str, Any]:
+    audit = read_json(operating_point_audit) if operating_point_audit is not None else {}
+    selected = audit.get("selected") if isinstance(audit.get("selected"), dict) else None
+    if strict_true(audit.get("ok", False)) and selected is not None:
+        return {
+            "source": "operating_point",
+            "path": selected.get("path", str(operating_point_audit)),
+            "conf": metric(selected, "conf", default=None),
+            "map50": metric(selected, "bbox_mAP50", default=0.0) or 0.0,
+            "oks": metric(selected, "oks_mean", default=0.0) or 0.0,
+            "fn": metric(selected, "false_negative_rate", default=1.0) or 1.0,
+            "fp": metric(selected, "false_positive_rate", default=1.0) or 1.0,
+            "operating_point_ok": True,
+        }
+    report = read_json(champion_real_eval)
+    return {
+        "source": "default_eval",
+        "path": str(champion_real_eval),
+        "conf": metric(report, "thresholds", "conf", default=None),
+        "map50": metric(report, "metrics_bbox", "mAP50", default=0.0) or 0.0,
+        "oks": metric(report, "oks", "mean", default=0.0) or 0.0,
+        "fn": metric(report, "rates", "false_negative_rate", default=1.0) or 1.0,
+        "fp": metric(report, "rates", "false_positive_rate", default=1.0) or 1.0,
+        "operating_point_ok": False,
+    }
+
+
 def build_gate_items(args: argparse.Namespace) -> list[GateItem]:
-    champion_eval = read_json(args.champion_real_eval)
     anchor_eval = read_json(args.champion_anchor_eval)
     onnx_eval = read_json(args.onnx_eval)
     drift = read_json(args.onnx_drift)
+    operating_point_audit = getattr(
+        args,
+        "operating_point_audit",
+        Path("outputs/production_audit/operating_point_audit.json"),
+    )
+    real_quality = real_quality_metrics(args.champion_real_eval, operating_point_audit)
 
-    real_map50 = metric(champion_eval, "metrics_bbox", "mAP50", default=0.0) or 0.0
-    real_oks = metric(champion_eval, "oks", "mean", default=0.0) or 0.0
-    real_fn = metric(champion_eval, "rates", "false_negative_rate", default=1.0) or 1.0
+    real_map50 = float(real_quality["map50"])
+    real_oks = float(real_quality["oks"])
+    real_fn = float(real_quality["fn"])
+    real_fp = float(real_quality["fp"])
+    real_source = str(real_quality["source"])
+    real_path = str(real_quality["path"])
+    real_conf = real_quality.get("conf")
+    real_conf_detail = (
+        f", conf={float(real_conf):.3f}" if isinstance(real_conf, (int, float)) else ""
+    )
     anchor_map50 = metric(anchor_eval, "metrics_bbox", "mAP50", default=0.0) or 0.0
     onnx_map50 = metric(onnx_eval, "metrics_bbox", "mAP50", default=0.0) or 0.0
     onnx_drift_ok = strict_true(drift.get("ok", False))
@@ -123,28 +205,44 @@ def build_gate_items(args: argparse.Namespace) -> list[GateItem]:
         file_gate("champion_pt_exists", args.champion_pt),
         file_gate("champion_onnx_exists", args.champion_onnx, severity="warn"),
         file_gate("contract_doc_exists", Path("docs/AR_ML_CONTRACT.md")),
-        file_gate("production_audit_exists", Path("docs/PRODUCTION_READINESS_AUDIT.md")),
-        report_ok_gate("dataset_audit", args.dataset_audit, severity="fail"),
+        file_gate(
+            "production_audit_exists", Path("docs/PRODUCTION_READINESS_AUDIT.md")
+        ),
+        dataset_audit_gate("dataset_audit", args.dataset_audit, severity="fail"),
+        GateItem(
+            "real_only_operating_point",
+            bool(real_quality["operating_point_ok"]),
+            "fail",
+            f"source={real_source}, report={real_path}{real_conf_detail}",
+        ),
         report_ok_gate("performance_audit", args.performance_audit, severity="fail"),
         report_ok_gate("release_integrity", args.release_integrity, severity="fail"),
-        report_ok_gate("runtime_contract_audit", args.runtime_contract_audit, severity="fail"),
+        report_ok_gate(
+            "runtime_contract_audit", args.runtime_contract_audit, severity="fail"
+        ),
         GateItem(
             "real_only_bbox_map50_target",
             real_map50 >= args.min_real_map50,
             "fail",
-            f"{real_map50:.3f} >= {args.min_real_map50:.3f}",
+            f"{real_map50:.3f} >= {args.min_real_map50:.3f} ({real_source})",
         ),
         GateItem(
             "real_only_oks_floor",
             real_oks >= args.min_real_oks,
             "fail",
-            f"{real_oks:.3f} >= {args.min_real_oks:.3f}",
+            f"{real_oks:.3f} >= {args.min_real_oks:.3f} ({real_source})",
         ),
         GateItem(
             "real_only_fn_ceiling",
             real_fn <= args.max_real_fn,
             "fail",
-            f"{real_fn:.3f} <= {args.max_real_fn:.3f}",
+            f"{real_fn:.3f} <= {args.max_real_fn:.3f} ({real_source})",
+        ),
+        GateItem(
+            "real_only_fp_ceiling",
+            real_fp <= args.max_real_fp,
+            "fail",
+            f"{real_fp:.3f} <= {args.max_real_fp:.3f} ({real_source})",
         ),
         GateItem(
             "mixed_anchor_regression_signal",
@@ -170,7 +268,9 @@ def build_gate_items(args: argparse.Namespace) -> list[GateItem]:
         ),
         certification_gate("exported_backends_certified", args.export_certification),
         certification_gate("tflite_litert_certified", args.tflite_certified),
-        evidence_ready_gate("production_evidence_audit_ready", args.production_evidence_audit),
+        evidence_ready_gate(
+            "production_evidence_audit_ready", args.production_evidence_audit
+        ),
         report_ok_gate("android_litert_device_eval", args.android_litert_eval),
         eval_quality_gate(
             "human_ar_holdout_eval",
@@ -178,6 +278,7 @@ def build_gate_items(args: argparse.Namespace) -> list[GateItem]:
             min_map50=args.min_ar_holdout_map50,
             min_oks=args.min_ar_holdout_oks,
             max_fn=args.max_ar_holdout_fn,
+            max_fp=args.max_ar_holdout_fp,
         ),
         report_ok_gate("ar_3d_replay_eval", args.ar_3d_eval),
     ]
@@ -208,21 +309,34 @@ def warning_items(items: list[GateItem]) -> list[str]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("integration", "production"), default="production")
+    parser.add_argument(
+        "--mode", choices=("integration", "production"), default="production"
+    )
     parser.add_argument(
         "--champion-pt",
         type=Path,
-        default=Path("runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt"),
+        default=Path(
+            "runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt"
+        ),
     )
     parser.add_argument(
         "--champion-onnx",
         type=Path,
-        default=Path("runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx"),
+        default=Path(
+            "runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx"
+        ),
     )
     parser.add_argument(
         "--champion-real-eval",
         type=Path,
-        default=Path("outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_on_self_val.json"),
+        default=Path(
+            "outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_on_self_val.json"
+        ),
+    )
+    parser.add_argument(
+        "--operating-point-audit",
+        type=Path,
+        default=Path("outputs/production_audit/operating_point_audit.json"),
     )
     parser.add_argument(
         "--champion-anchor-eval",
@@ -294,11 +408,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-real-map50", type=float, default=0.85)
     parser.add_argument("--min-real-oks", type=float, default=0.80)
     parser.add_argument("--max-real-fn", type=float, default=0.10)
+    parser.add_argument("--max-real-fp", type=float, default=0.15)
     parser.add_argument("--min-anchor-map50", type=float, default=0.65)
     parser.add_argument("--min-onnx-map50", type=float, default=0.65)
     parser.add_argument("--min-ar-holdout-map50", type=float, default=0.85)
     parser.add_argument("--min-ar-holdout-oks", type=float, default=0.80)
     parser.add_argument("--max-ar-holdout-fn", type=float, default=0.10)
+    parser.add_argument("--max-ar-holdout-fp", type=float, default=0.15)
     parser.add_argument("--json-out", type=Path, default=None)
     return parser.parse_args()
 

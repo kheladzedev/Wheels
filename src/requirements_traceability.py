@@ -69,6 +69,7 @@ def build_traceability() -> dict[str, Any]:
     rows = [
         req_row("Champion model artifact exists", "champion_pytorch_artifact"),
         req_row("Exportable TFLite artifact exists", "champion_tflite_artifact"),
+        req_row("Exportable CoreML artifact exists", "champion_coreml_artifact"),
         req_row("Model lineage and inventory are documented", "model_inventory_lineage"),
         req_row("Champion selection and promotion guard passes", "model_selection_promotion_guard"),
         req_row("Training/evaluation datasets pass format and leakage audit", "dataset_format_and_leakage"),
@@ -78,6 +79,7 @@ def build_traceability() -> dict[str, Any]:
         req_row("Local performance audit passes", "performance_audit"),
         req_row("ONNX/TFLite export backends are certified", "export_backend_certification"),
         req_row("Desktop TFLite/LiteRT package is certified", "tflite_litert_certification"),
+        req_row("Desktop CoreML package is certified", "coreml_certification"),
         req_row(
             "Android-device LiteRT evidence is validated",
             "android_litert_device_validation",

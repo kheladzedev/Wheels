@@ -7,30 +7,54 @@ def test_build_steps_orders_release_around_gates():
     names = [step.name for step in build_steps(include_performance=True, include_pytest=True)]
 
     assert names.index("model_inventory") < names.index("model_selection_audit")
-    assert names.index("model_selection_audit") < names.index("dataset_audit")
+    assert names.index("model_selection_audit") < names.index("strict_dataset_real_v1_self")
+    assert names.index("strict_dataset_real_v1_self") < names.index(
+        "strict_dataset_real_v1_self_plus_ue_synthetic"
+    )
+    assert names.index("strict_dataset_real_v1_self_plus_ue_synthetic") < names.index(
+        "dataset_audit"
+    )
+    assert names.index("dataset_audit") < names.index("threshold_conf070_real_val")
+    assert names.index("threshold_conf070_real_val") < names.index("threshold_conf075_real_val")
+    assert names.index("threshold_conf075_real_val") < names.index("threshold_conf080_real_val")
+    assert names.index("threshold_conf080_real_val") < names.index("operating_point_audit")
+    assert names.index("operating_point_audit") < names.index("runtime_contract_audit")
     assert names.index("runtime_contract_audit") < names.index("spec_compliance_audit")
+    assert names.index("export_parity_audit") < names.index("coreml_export")
+    assert names.index("coreml_export") < names.index("coreml_certification")
+    assert names.index("coreml_certification") < names.index("external_evidence_handoff_bundle")
     assert names.index("spec_compliance_audit") < names.index("release_integrity_pregate")
     assert names.index("release_integrity_pregate") < names.index("integration_gate")
     assert names.index("ar_replay_log_template") < names.index("production_evidence_audit")
     assert names.index("ar_holdout_provenance_template") < names.index("production_evidence_intake_preflight")
     assert names.index("production_evidence_intake_preflight") < names.index("production_evidence_audit")
+    assert names.index("production_evidence_audit") < names.index("data_readiness_decision")
+    assert names.index("data_readiness_decision") < names.index("external_evidence_handoff_bundle")
     assert names.index("external_evidence_return_template") < names.index("external_evidence_handoff_bundle")
     assert names.index("external_evidence_handoff_bundle") < names.index("release_integrity_pregate")
-    assert names.index("external_evidence_handoff_bundle") < names.index("production_evidence_audit")
     assert names.index("external_evidence_handoff_bundle") < names.index(
         "external_evidence_handoff_bundle_verify"
     )
     assert names.index("external_evidence_handoff_bundle_verify") < names.index(
         "release_integrity_pregate"
     )
-    assert names.index("external_evidence_handoff_bundle_verify") < names.index(
-        "production_evidence_audit"
-    )
+    assert names.index("data_readiness_decision") < names.index("release_integrity_pregate")
     assert names.index("ar_replay_log_template") < names.index("release_integrity_pregate")
     preflight = next(step for step in build_steps(include_performance=True, include_pytest=True) if step.name == "production_evidence_intake_preflight")
     assert preflight.allow_failure is True
     assert "--status-out" in preflight.cmd
     assert "outputs/production_audit/production_evidence_intake_preflight_status.json" in preflight.cmd
+    dataset_audit = next(step for step in build_steps(include_performance=True, include_pytest=True) if step.name == "dataset_audit")
+    assert dataset_audit.allow_failure is True
+    assert "--gate-config" in dataset_audit.cmd
+    assert "configs/pose_dataset_real_v1_self_strict.yaml" in dataset_audit.cmd
+    assert "configs/pose_dataset_real_v1_self_plus_ue_synthetic_strict.yaml" in dataset_audit.cmd
+    op_audit = next(step for step in build_steps(include_performance=True, include_pytest=True) if step.name == "operating_point_audit")
+    assert op_audit.allow_failure is False
+    integration_gate = next(step for step in build_steps(include_performance=True, include_pytest=True) if step.name == "integration_gate")
+    assert integration_gate.allow_failure is True
+    project_readiness = next(step for step in build_steps(include_performance=True, include_pytest=True) if step.name == "project_readiness")
+    assert project_readiness.allow_failure is True
     assert names.index("production_gate_expected") < names.index("senior_ml_audit")
     assert names.index("senior_ml_audit") < names.index("release_integrity_final")
     assert names.index("senior_ml_audit") < names.index("requirements_traceability_final")

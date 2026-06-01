@@ -55,13 +55,16 @@ def main() -> None:
     moved_to_val = 0
     moved_to_train = 0
 
+    _IMAGE_EXTS = ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp")
+
     # Iterate over union of train + val image stems.
     def _all_image_files() -> list[Path]:
         out = []
         for d in (images_train, images_val):
             if d.is_dir():
-                out.extend(sorted(d.glob("*.jpg")))
-        return out
+                for ext in _IMAGE_EXTS:
+                    out.extend(d.glob(ext))
+        return sorted(set(out))
 
     for img_path in _all_image_files():
         stem = img_path.stem
@@ -91,8 +94,10 @@ def main() -> None:
         "moved_to_val": moved_to_val,
         "moved_to_train": moved_to_train,
         "final_counts": {
-            "train_images": len(list(images_train.glob("*.jpg"))),
-            "val_images": len(list(images_val.glob("*.jpg"))),
+            "train_images": sum(
+                len(list(images_train.glob(ext))) for ext in _IMAGE_EXTS
+            ),
+            "val_images": sum(len(list(images_val.glob(ext))) for ext in _IMAGE_EXTS),
             "train_labels": len(list(labels_train.glob("*.txt"))),
             "val_labels": len(list(labels_val.glob("*.txt"))),
         },

@@ -90,12 +90,15 @@ def _contract_payload() -> dict[str, Any]:
     detections = [
         {
             "class_name": "wheel",
+            # Valid floor-ray geometry: A/B sit on the lower band (rel_y>=0.80)
+            # with >=0.50w horizontal separation, C is in the lower half and
+            # above the A/B line (see postprocess_wheels.confirmed_geometry_issues).
             "bbox": [10, 20, 60, 80],
             "confidence": 0.93,
             "keypoints": [
-                {"xy": [15, 30], "visibility": 2, "confidence": 0.91},
-                {"xy": [55, 75], "visibility": 2, "confidence": 0.90},
-                {"xy": [35, 79], "visibility": 2, "confidence": 0.88},
+                {"xy": [18, 76], "visibility": 2, "confidence": 0.91},
+                {"xy": [52, 76], "visibility": 2, "confidence": 0.90},
+                {"xy": [35, 70], "visibility": 2, "confidence": 0.88},
             ],
         },
         {
@@ -109,7 +112,9 @@ def _contract_payload() -> dict[str, Any]:
             ],
         },
     ]
-    legacy = build_ar_payload(detections, conf_threshold=0.25, frame_id="spec-audit-frame")
+    legacy = build_ar_payload(
+        detections, conf_threshold=0.25, frame_id="spec-audit-frame"
+    )
     return to_confirmed_schema(legacy)
 
 
@@ -120,7 +125,11 @@ def build_audit() -> dict[str, Any]:
     confirmed = _contract_payload()
     wheels = confirmed.get("wheels", [])
     first_wheel = wheels[0] if wheels and isinstance(wheels[0], dict) else {}
-    points = first_wheel.get("points", {}) if isinstance(first_wheel.get("points"), dict) else {}
+    points = (
+        first_wheel.get("points", {})
+        if isinstance(first_wheel.get("points"), dict)
+        else {}
+    )
     all_keys: set[str] = set()
     _collect_keys(confirmed, all_keys)
     forbidden_hits = sorted(
@@ -207,7 +216,8 @@ def build_audit() -> dict[str, Any]:
         ),
         ComplianceCheck(
             "inference_wrappers_present",
-            Path("src/infer_image.py").is_file() and Path("src/infer_batch.py").is_file(),
+            Path("src/infer_image.py").is_file()
+            and Path("src/infer_batch.py").is_file(),
             "src/infer_image.py; src/infer_batch.py",
             "single-frame and batch AR payload entrypoints present",
         ),
@@ -264,7 +274,9 @@ def main() -> int:
     args = parse_args()
     audit = build_audit()
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
-    args.json_out.write_text(json.dumps(audit, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    args.json_out.write_text(
+        json.dumps(audit, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     args.md_out.parent.mkdir(parents=True, exist_ok=True)
     args.md_out.write_text(render_markdown(audit), encoding="utf-8")
     print(f"ok={audit['ok']} failures={audit['failures']}")

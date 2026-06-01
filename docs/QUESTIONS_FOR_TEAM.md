@@ -147,6 +147,9 @@ keypoint labels with zero manual labelling for synthetic data — huge win.
 
 ### Q10. Target platforms and order
 
+> Note (2026-05-30): v1 is Android-only (LiteRT/TFLite). iOS/CoreML is deferred
+> — zero CoreML artifacts (.mlmodel/.mlpackage) exist today.
+
 Server → web → mobile? This determines export format (ONNX vs CoreML vs
 TFLite) and our latency budget per inference call.
 

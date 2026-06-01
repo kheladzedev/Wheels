@@ -5,6 +5,9 @@ Confirmed direction (AR team, 2026-05-13; re-confirmed 2026-05-18):
 model that detects wheels + 3 keypoints (`a`, `b`, `c_disc_bottom`)
 per frame and runs at AR-friendly latency on a real Android device.
 
+> Note (2026-05-30): v1 is Android-only (LiteRT). iOS/CoreML is deferred —
+> zero CoreML artifacts (.mlmodel/.mlpackage) exist today.
+
 This document tracks the two-stage model roadmap. Stage 1 validates
 the data and pipeline with the simplest thing that already works;
 Stage 2 swaps the encoder to something Android-class once we know the

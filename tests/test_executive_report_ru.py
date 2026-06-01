@@ -37,3 +37,29 @@ def test_executive_report_mentions_consolidated_evidence_gate(tmp_path, monkeypa
     assert "Consolidated production evidence gate: False" in report
     assert "Deterministic package manifest" in report
     assert "src/run_production_evidence_intake.py" in report
+
+
+def test_executive_report_does_not_claim_integration_ready_when_gate_fails(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    audit_root = tmp_path / "outputs" / "production_audit"
+    audit_root.mkdir(parents=True)
+    (audit_root / "audit_suite_status.json").write_text(
+        '{"integration_ready": false, "production_ready": false, "ok": false, '
+        '"production_blockers": ["dataset_format_and_leakage", "champion_real_validation_quality"]}',
+        encoding="utf-8",
+    )
+    (audit_root / "production_evidence_audit.json").write_text(
+        '{"production_evidence_ready": false, "checks": []}',
+        encoding="utf-8",
+    )
+    (audit_root / "requirements_traceability.json").write_text(
+        '{"summary": {"passed": 9, "requirements": 16}}',
+        encoding="utf-8",
+    )
+
+    report = build_report()
+
+    assert "integration gate сейчас не закрыт" in report
+    assert "модель является integration-ready" not in report

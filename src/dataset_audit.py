@@ -282,7 +282,48 @@ def audit_config(config_path: Path, image_sample_limit: int) -> dict[str, Any]:
     }
 
 
-def build_audit(configs: list[Path], image_sample_limit: int) -> dict[str, Any]:
+def build_gate_summary(
+    reports: list[dict[str, Any]],
+    gate_configs: list[Path] | None,
+) -> dict[str, Any]:
+    if gate_configs:
+        requested = [_rel(path) for path in gate_configs]
+        scope = "configured_subset"
+    else:
+        requested = [str(report["config"]) for report in reports]
+        scope = "all_configs"
+
+    by_config = {str(report["config"]): report for report in reports}
+    selected = [by_config[config] for config in requested if config in by_config]
+    missing = [config for config in requested if config not in by_config]
+    failed = [str(report["config"]) for report in selected if not report["ok"]]
+    return {
+        "ok": not missing and not failed,
+        "scope": scope,
+        "configs": requested,
+        "missing_configs": missing,
+        "failed_configs": failed,
+        "counts": {
+            "configs": len(selected),
+            "missing": len(missing),
+            "ok": sum(1 for report in selected if report["ok"]),
+            "failed": len(failed),
+            "total_train_images": sum(report["splits"]["train"]["images"] for report in selected),
+            "total_val_images": sum(report["splits"]["val"]["images"] for report in selected),
+            "total_wheel_labels": sum(
+                split["wheel_labels"]
+                for report in selected
+                for split in report["splits"].values()
+            ),
+        },
+    }
+
+
+def build_audit(
+    configs: list[Path],
+    image_sample_limit: int,
+    gate_configs: list[Path] | None = None,
+) -> dict[str, Any]:
     reports = [audit_config(path, image_sample_limit) for path in sorted(configs)]
     return {
         "ok": all(report["ok"] for report in reports),
@@ -298,6 +339,7 @@ def build_audit(configs: list[Path], image_sample_limit: int) -> dict[str, Any]:
                 for split in report["splits"].values()
             ),
         },
+        "gate": build_gate_summary(reports, gate_configs),
         "reports": reports,
     }
 
@@ -317,6 +359,17 @@ def render_markdown(audit: dict[str, Any]) -> str:
         f"- Total train images across configs: {audit['counts']['total_train_images']}",
         f"- Total val images across configs: {audit['counts']['total_val_images']}",
         f"- Total wheel label lines across configs: {audit['counts']['total_wheel_labels']}",
+        "",
+        "## Gate",
+        "",
+        f"- Gate OK: {audit['gate']['ok']}",
+        f"- Gate scope: {audit['gate']['scope']}",
+        f"- Gate configs: {audit['gate']['counts']['configs']}",
+        f"- Gate missing configs: {audit['gate']['counts']['missing']}",
+        f"- Gate failed configs: {audit['gate']['counts']['failed']}",
+        f"- Gate train images: {audit['gate']['counts']['total_train_images']}",
+        f"- Gate val images: {audit['gate']['counts']['total_val_images']}",
+        f"- Gate wheel label lines: {audit['gate']['counts']['total_wheel_labels']}",
         "",
         "## Configs",
         "",
@@ -347,6 +400,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-sample-limit", type=int, default=50)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--md-out", type=Path, default=DEFAULT_MD_OUT)
+    parser.add_argument(
+        "--gate-config",
+        action="append",
+        type=Path,
+        default=[],
+        help=(
+            "Config path that must pass for the machine gate. Repeat for "
+            "multiple production-scope configs. The full audit still reports "
+            "all configs matched by --config-glob."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -355,17 +419,21 @@ def main() -> int:
     configs = sorted(Path(".").glob(args.config_glob))
     if not configs:
         raise FileNotFoundError(f"no configs matched {args.config_glob!r}")
-    audit = build_audit(configs, args.image_sample_limit)
+    gate_configs = args.gate_config if args.gate_config else None
+    audit = build_audit(configs, args.image_sample_limit, gate_configs=gate_configs)
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(json.dumps(audit, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     args.md_out.parent.mkdir(parents=True, exist_ok=True)
     args.md_out.write_text(render_markdown(audit), encoding="utf-8")
     print(
         f"ok={audit['ok']} configs={audit['counts']['configs']} "
-        f"failed={audit['counts']['failed']} wheels={audit['counts']['total_wheel_labels']}"
+        f"failed={audit['counts']['failed']} wheels={audit['counts']['total_wheel_labels']} "
+        f"gate_ok={audit['gate']['ok']}"
     )
     print(f"json={args.json_out}")
     print(f"markdown={args.md_out}")
+    if gate_configs:
+        return 0 if audit["gate"]["ok"] else 1
     return 0 if audit["ok"] else 1
 
 

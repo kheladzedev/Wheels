@@ -1,5 +1,16 @@
 # MobileNetV2 LiteRT Handoff
 
+> **CORRECTION 2026-05-30 (STALE / UNBACKED).** This document describes a
+> PROPOSED MobileNetV2-skipless architecture that was NEVER trained. There are
+> ZERO MN2 checkpoints, model packages, or `.tflite` on disk
+> (`outputs/model_packages/` does not exist). The "Verified Metrics" and parity
+> numbers below are not backed by any artifact. The actually-shipped champion is
+> the YOLO11s-pose model at
+> `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt`
+> (+ `best.onnx` + float16/float32 TFLite). The MN2 module
+> (`src/models/mobilenetv2_skipless_pose.py`) is kept as load-bearing code for
+> the 3D-loss / web-multitask features, but it is untrained.
+
 Status: `provisional_not_production`
 
 This document is the Android/LiteRT handoff for the current provisional

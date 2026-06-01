@@ -31,6 +31,7 @@ def create_common_evidence(root: Path, *, production_ready: bool) -> None:
     write(root / "runs" / "pose" / "wheel_real_v1_self_plus_ue_synthetic_s" / "weights" / "best.pt")
     write(root / "runs" / "pose" / "wheel_real_v1_self_plus_ue_synthetic_s" / "weights" / "best.onnx")
     write(root / "outputs" / "production_audit" / "tflite_export" / "best_float32.tflite")
+    write(root / "outputs" / "production_audit" / "coreml_export" / "best.mlmodel")
     write(root / "docs" / "SENIOR_ML_AUDIT.md")
     write(root / "docs" / "EXECUTIVE_REPORT_RU.md")
     write(root / "src" / "import_external_evidence_drop.py")
@@ -63,6 +64,10 @@ def create_common_evidence(root: Path, *, production_ready: bool) -> None:
     )
     write_json(
         root / "outputs" / "production_audit" / "tflite_certification.json",
+        '{"certified": true}',
+    )
+    write_json(
+        root / "outputs" / "production_audit" / "coreml_certification.json",
         '{"certified": true}',
     )
     write_json(root / "outputs" / "production_audit" / "integration_gate.json", '{"ok": true}')

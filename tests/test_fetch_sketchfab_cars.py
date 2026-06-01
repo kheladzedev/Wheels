@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+import importlib.util as _ilu
 import time
 from pathlib import Path
 
-import fetch_sketchfab_cars as sfc
+# `fetch_sketchfab_cars` also exists under scripts/ as a thin CLI. Load the
+# library implementation from src/ by explicit path so that suite ordering
+# which puts scripts/ ahead on sys.path cannot shadow it via a sys.modules
+# name collision (this otherwise makes the whole file pass alone but fail in
+# the full run).
+_SFC_SRC = Path(__file__).resolve().parent.parent / "src" / "fetch_sketchfab_cars.py"
+_spec = _ilu.spec_from_file_location("fetch_sketchfab_cars_src", _SFC_SRC)
+sfc = _ilu.module_from_spec(_spec)
+assert _spec and _spec.loader
+_spec.loader.exec_module(sfc)
 
 
 def _model(name: str, **extra: object) -> dict:
@@ -102,8 +112,7 @@ def test_recent_download_failures_can_be_skipped_from_manifest_queue(tmp_path: P
     )
     old_failed.write_text(
         '{"uid": "old_failed", "name": "Ford car", '
-        '"_download_failure": {"reason": "download", "time": %d}}'
-        % (now - 72 * 3600)
+        '"_download_failure": {"reason": "download", "time": %d}}' % (now - 72 * 3600)
     )
 
     candidates = sfc._load_manifest_candidates(

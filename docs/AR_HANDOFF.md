@@ -80,6 +80,12 @@ it is used as a regression signal, not as the production acceptance
 split. The long-term keypoint target `<=5 px` is not met by the
 champion.
 
+> Note (2026-05-30): the champion's real-only self-val false-positive rate is
+> `FP=0.25` (above the `real_only_fp_ceiling` default of 0.15). `production_gate.py`
+> now enforces this FP ceiling (severity: fail) plus an FP ceiling on the human
+> AR holdout, so integration mode honestly fails on `real_only_fp_ceiling` (and on
+> `dataset_audit`).
+
 ## Single-frame smoke test
 
 ```bash

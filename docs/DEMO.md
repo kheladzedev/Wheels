@@ -92,7 +92,8 @@ cat outputs/demo_self_plus_ue_synthetic_s/json/$(ls outputs/demo_self_plus_ue_sy
 - 3D пространственные координаты, RANSAC параметры, plane equations,
   K-frame аккумулятор — это AR-сторона. Если спросят, ссылка —
   `docs/AR_ML_CONTRACT.md` §"What ML does NOT do".
-- TFLite / CoreML экспорты — пока не сертифицированы. Для текущей
+- TFLite / CoreML экспорты — пока не сертифицированы (note 2026-05-30: v1 —
+  только Android/LiteRT, iOS/CoreML отложен, CoreML-артефактов на диске нет). Для текущей
   передачи есть PyTorch `.pt` и ONNX:
   `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.{pt,onnx}`.
   ONNX aggregate eval близок к PyTorch, но строгий parity gate падает

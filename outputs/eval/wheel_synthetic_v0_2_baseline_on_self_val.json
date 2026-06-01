@@ -1,0 +1,218 @@
+{
+  "model": "runs/pose/wheel_synthetic_v0_2_baseline/weights/best.pt",
+  "data": "configs/pose_dataset_real_v1_self.yaml",
+  "split": "val",
+  "device": "mps",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 64,
+    "pred_wheels_above_conf": 32,
+    "matched": 0,
+    "false_negatives": 64,
+    "false_positives": 32,
+    "images": 48
+  },
+  "per_keypoint_pixel_error": {
+    "a": {
+      "median": null,
+      "mean": null,
+      "p95": null,
+      "p99": null,
+      "n": 0
+    },
+    "b": {
+      "median": null,
+      "mean": null,
+      "p95": null,
+      "p99": null,
+      "n": 0
+    },
+    "c_disc_bottom": {
+      "median": null,
+      "mean": null,
+      "p95": null,
+      "p99": null,
+      "n": 0
+    }
+  },
+  "oks": {
+    "mean": null,
+    "n": 0
+  },
+  "rates": {
+    "false_negative_rate": 1.0,
+    "false_positive_rate": 1.0
+  },
+  "metrics_bbox": {
+    "mAP50": 0.0,
+    "mAP50_95": 0.0
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      }
+    }
+  },
+  "failure_samples": []
+}

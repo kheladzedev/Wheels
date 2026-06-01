@@ -20,11 +20,11 @@
 
 ## Data
 
-- Dataset audit OK: True
-- Dataset configs checked: 12
-- Total train images across configs: 2082
-- Total val images across configs: 489
-- Total wheel labels across configs: 4033
+- Dataset audit OK: False
+- Dataset configs checked: 22
+- Total train images across configs: 5705
+- Total val images across configs: 1287
+- Total wheel labels across configs: 12148
 - External 3D car pool: 300 clean GLBs from Sketchfab/Objaverse.
 - UE clean geometry labels: 132 frames / 548 wheels after QA filtering.
 
@@ -41,8 +41,8 @@
 
 - Export backend certification: True (`desktop_export_backend_certification_not_android_device`)
 - TFLite package certification: True (`desktop_tflite_litert_package_not_android_device`)
-- PyTorch CPU mean latency: 41.208054623893986 ms
-- ONNX CPU mean latency: 37.6004218755952 ms
+- PyTorch CPU mean latency: 41.96455724968473 ms
+- ONNX CPU mean latency: 39.09157031216637 ms
 - LiteRT desktop smoke mean latency: 269.1269209004531 ms
 - Android-device LiteRT validation is not yet present.
 

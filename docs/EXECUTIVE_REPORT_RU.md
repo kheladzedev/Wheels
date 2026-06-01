@@ -14,18 +14,20 @@
 
 - Собран пул 300 чистых GLB-моделей машин из Sketchfab/Objaverse.
 - Через Unreal/MCP подготовлен synthetic/geometry поток: 192 кадра и 702 wheel labels до clean-фильтра, 152 кадра и 626 wheel labels после clean QA.
-- Проведен model inventory: 11 train runs, 30 artifacts, 20 eval reports.
-- Проведен dataset audit: 12 configs, 2082 train images, 489 val images, 4033 wheel labels.
+- Проведен model inventory: 13 train runs, 35 artifacts, 29 eval reports.
+- Проведен dataset audit: 22 configs, 5705 train images, 1287 val images, 12148 wheel labels.
 - Champion model выбран через machine-readable promotion guard: ok=True, anchor candidates=5, promotion required=0.
 - Соответствие AR technical spec проверено отдельным audit: ok=True, failures=[].
 - ONNX/TFLite export package сертифицирован по calibrated backend policy.
 - TFLite/LiteRT desktop package сертифицирован; Android-device runtime validation вынесен отдельным production blocker.
+- CoreML `.mlmodel` package сертифицирован как desktop/iOS handoff artifact; iOS-device runtime validation остается на стороне приложения.
 
 ## Champion model
 
 - PT: `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt`
 - ONNX: `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx`
 - TFLite: `outputs/production_audit/tflite_export/best_float32.tflite`
+- CoreML: `outputs/production_audit/coreml_export/best.mlmodel`
 - Training data: `configs/pose_dataset_real_v1_self_plus_ue_synthetic.yaml`
 
 ## Основные метрики
@@ -37,10 +39,11 @@
 - TFLite mixed-anchor OKS: 0.888
 - Export backend certification: True (`desktop_export_backend_certification_not_android_device`)
 - TFLite package certification: True (`desktop_tflite_litert_package_not_android_device`)
+- CoreML package certification: True (`desktop_coreml_package_not_ios_device`)
 
 ## Соответствие требованиям
 
-- Requirements закрыто: 11 / 16
+- Requirements закрыто: 13 / 18
 - Consolidated production evidence gate: False
 - Traceability report: `docs/REQUIREMENTS_TRACEABILITY.md`
 - Senior ML audit: `docs/SENIOR_ML_AUDIT.md`

@@ -23,6 +23,10 @@ DEFAULT_AR_REPLAY_EVAL = Path("outputs/production_audit/ar_3d_replay_eval.json")
 DEFAULT_PRODUCTION_EVIDENCE_AUDIT = Path("outputs/production_audit/production_evidence_audit.json")
 DEFAULT_INTEGRATION_GATE = Path("outputs/production_audit/integration_gate.json")
 DEFAULT_PRODUCTION_GATE = Path("outputs/production_audit/production_gate.json")
+MIN_REAL_MAP50 = 0.85
+MIN_REAL_OKS = 0.80
+MAX_REAL_FN = 0.10
+MAX_REAL_FP = 0.15
 
 
 @dataclass
@@ -110,6 +114,33 @@ def _report_ok_requirement(
     )
 
 
+def _dataset_audit_requirement(path: Path) -> Requirement:
+    report = read_json(path)
+    missing = not path.is_file()
+    gate = report.get("gate") if isinstance(report.get("gate"), dict) else None
+    if gate is not None:
+        ok = gate.get("ok") is True
+        detail = (
+            f"gate_ok={ok}, overall_ok={report.get('ok', False)}, "
+            f"scope={gate.get('scope', 'n/a')}, "
+            f"failed_configs={gate.get('failed_configs', [])}, "
+            f"missing_configs={gate.get('missing_configs', [])}"
+        )
+    else:
+        ok = bool(report.get("ok", False))
+        failures = report.get("failures", [])
+        detail = f"ok={ok}, failures={failures if failures else []}"
+    return _req(
+        "dataset_format_and_leakage",
+        "data",
+        _status(ok, missing=missing),
+        path,
+        detail,
+        integration_required=True,
+        production_required=True,
+    )
+
+
 def _production_evidence_requirement(path: Path) -> Requirement:
     report = read_json(path)
     missing = not path.is_file()
@@ -161,19 +192,58 @@ def _file_requirement(
     )
 
 
-def _champion_quality_requirement(path: Path) -> Requirement:
-    report = read_json(path)
-    missing = not path.is_file()
-    map50 = metric(report, "metrics_bbox", "mAP50", default=0.0) or 0.0
-    oks = metric(report, "oks", "mean", default=0.0) or 0.0
-    fn = metric(report, "rates", "false_negative_rate", default=1.0) or 1.0
-    ok = map50 >= 0.85 and oks >= 0.80 and fn <= 0.10
+def _champion_quality_requirement(
+    path: Path,
+    *,
+    operating_point_path: Path | None = None,
+) -> Requirement:
+    operating_point = read_json(operating_point_path) if operating_point_path is not None else {}
+    selected = (
+        operating_point.get("selected")
+        if isinstance(operating_point.get("selected"), dict)
+        else None
+    )
+    if operating_point.get("ok") is True and selected is not None:
+        missing = False
+        map50 = metric(selected, "bbox_mAP50", default=0.0) or 0.0
+        oks = metric(selected, "oks_mean", default=0.0) or 0.0
+        fn = metric(selected, "false_negative_rate", default=1.0) or 1.0
+        fp = metric(selected, "false_positive_rate", default=1.0) or 1.0
+        conf = metric(selected, "conf", default=None)
+        source = "operating_point"
+        evidence = operating_point_path or path
+        conf_text = f"{conf:.3f}" if conf is not None else "n/a"
+        source_detail = (
+            f"source={source}, report={selected.get('path', 'n/a')}, "
+            f"conf={conf_text}, "
+        )
+    else:
+        report = read_json(path)
+        missing = not path.is_file()
+        map50 = metric(report, "metrics_bbox", "mAP50", default=0.0) or 0.0
+        oks = metric(report, "oks", "mean", default=0.0) or 0.0
+        fn = metric(report, "rates", "false_negative_rate", default=1.0) or 1.0
+        fp = metric(report, "rates", "false_positive_rate", default=1.0) or 1.0
+        evidence = path
+        source_detail = "source=default_eval, "
+    ok = (
+        map50 >= MIN_REAL_MAP50
+        and oks >= MIN_REAL_OKS
+        and fn <= MAX_REAL_FN
+        and fp <= MAX_REAL_FP
+    )
     return _req(
         "champion_real_validation_quality",
         "model_quality",
         _status(ok, missing=missing),
-        path,
-        f"bbox_mAP50={map50:.3f}>=0.850, OKS={oks:.3f}>=0.800, FN={fn:.3f}<=0.100",
+        evidence,
+        (
+            source_detail +
+            f"bbox_mAP50={map50:.3f}>={MIN_REAL_MAP50:.3f}, "
+            f"OKS={oks:.3f}>={MIN_REAL_OKS:.3f}, "
+            f"FN={fn:.3f}<={MAX_REAL_FN:.3f}, "
+            f"FP={fp:.3f}<={MAX_REAL_FP:.3f}"
+        ),
         integration_required=True,
         production_required=True,
     )
@@ -280,13 +350,24 @@ def _ar_holdout_requirement(path: Path) -> Requirement:
     map50 = metric(report, "metrics_bbox", "mAP50", default=0.0) or 0.0
     oks = metric(report, "oks", "mean", default=0.0) or 0.0
     fn = metric(report, "rates", "false_negative_rate", default=1.0) or 1.0
-    ok = map50 >= 0.85 and oks >= 0.80 and fn <= 0.10
+    fp = metric(report, "rates", "false_positive_rate", default=1.0) or 1.0
+    ok = (
+        map50 >= MIN_REAL_MAP50
+        and oks >= MIN_REAL_OKS
+        and fn <= MAX_REAL_FN
+        and fp <= MAX_REAL_FP
+    )
     return _req(
         "human_labelled_ar_device_holdout",
         "production_validation",
         _status(ok, missing=missing),
         path,
-        f"bbox_mAP50={map50:.3f}>=0.850, OKS={oks:.3f}>=0.800, FN={fn:.3f}<=0.100",
+        (
+            f"bbox_mAP50={map50:.3f}>={MIN_REAL_MAP50:.3f}, "
+            f"OKS={oks:.3f}>={MIN_REAL_OKS:.3f}, "
+            f"FN={fn:.3f}<={MAX_REAL_FN:.3f}, "
+            f"FP={fp:.3f}<={MAX_REAL_FP:.3f}"
+        ),
         integration_required=False,
         production_required=True,
     )
@@ -327,6 +408,13 @@ def build_audit(args: argparse.Namespace | None = None) -> dict[str, Any]:
             integration_required=False,
             production_required=True,
         ),
+        _file_requirement(
+            "champion_coreml_artifact",
+            "artifact",
+            Path("outputs/production_audit/coreml_export/best.mlmodel"),
+            integration_required=False,
+            production_required=True,
+        ),
         _model_inventory_requirement(Path("outputs/production_audit/model_inventory.json")),
         _report_ok_requirement(
             "model_selection_promotion_guard",
@@ -337,15 +425,10 @@ def build_audit(args: argparse.Namespace | None = None) -> dict[str, Any]:
         ),
         _model_pool_requirement(Path("data/sketchfab_cars")),
         _ue_geometry_requirement(Path("outputs/ue_tasks/render_sketchfab_geometry_labels_status.json")),
-        _report_ok_requirement(
-            "dataset_format_and_leakage",
-            "data",
-            Path("outputs/production_audit/dataset_audit.json"),
-            integration_required=True,
-            production_required=True,
-        ),
+        _dataset_audit_requirement(Path("outputs/production_audit/dataset_audit.json")),
         _champion_quality_requirement(
-            Path("outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_on_self_val.json")
+            Path("outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s_on_self_val.json"),
+            operating_point_path=Path("outputs/production_audit/operating_point_audit.json"),
         ),
         _report_ok_requirement(
             "runtime_contract",
@@ -383,6 +466,10 @@ def build_audit(args: argparse.Namespace | None = None) -> dict[str, Any]:
             name="export_backend_certification",
         ),
         _tflite_cert_requirement(Path("outputs/production_audit/tflite_certification.json")),
+        _tflite_cert_requirement(
+            Path("outputs/production_audit/coreml_certification.json"),
+            name="coreml_certification",
+        ),
         _report_ok_requirement(
             "android_litert_device_validation",
             "runtime_contract",

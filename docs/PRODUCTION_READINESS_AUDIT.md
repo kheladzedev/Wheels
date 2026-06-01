@@ -30,12 +30,12 @@ Automated gate outputs:
 Model inventory:
 
 - Report: `docs/MODEL_INVENTORY.md`
-- Train runs: 11
-- Artifacts: 30
-  (`.pt`=22,
+- Train runs: 13
+- Artifacts: 35
+  (`.pt`=26,
   `.onnx`=7,
   `.tflite`=1)
-- Eval reports linked: 20
+- Eval reports linked: 29
 - Champion training data: `configs/pose_dataset_real_v1_self_plus_ue_synthetic.yaml`
 - Champion source model: `runs/pose/runs/pose/wheel_real_v1_self_s/weights/best.pt`
 
@@ -57,19 +57,19 @@ Spec compliance audit:
 Dataset audit:
 
 - Report: `docs/DATASET_AUDIT.md`
-- Overall OK: True
-- Dataset configs checked: 12
-- Failed configs: 0
-- Total train images across configs: 2082
-- Total val images across configs: 489
-- Total wheel label lines across configs: 4033
+- Overall OK: False
+- Dataset configs checked: 22
+- Failed configs: 20
+- Total train images across configs: 5705
+- Total val images across configs: 1287
+- Total wheel label lines across configs: 12148
 
 Release package integrity:
 
 - Report: `docs/RELEASE_PACKAGE.md`
 - Overall OK: True
-- Artifacts: 85
-- Total size: 126.342 MB
+- Artifacts: 103
+- Total size: 196.211 MB
 
 Runtime contract audit:
 
@@ -84,8 +84,8 @@ Performance audit:
 - Overall OK: True
 - Scope: `desktop_local_runtime_diagnostic_not_android_certification`
 - Sample frames: 8
-- PyTorch CPU mean/p95: 41.208 / 51.491 ms
-- ONNX CPU mean/p95: 37.600 / 49.507 ms
+- PyTorch CPU mean/p95: 41.965 / 52.741 ms
+- ONNX CPU mean/p95: 39.092 / 50.990 ms
 - LiteRT smoke mean/p95: 269.127 / 271.012 ms
 
 Senior ML audit:
@@ -94,7 +94,7 @@ Senior ML audit:
 - Audit OK: True
 - Integration ready: True
 - Production ready: False
-- Requirements passed: 17 / 24
+- Requirements passed: 19 / 26
 - Production blockers: android_litert_device_validation, human_labelled_ar_device_holdout, ar_3d_replay_validation, production_evidence_audit_ready, production_gate
 
 Objective completion audit:
@@ -103,7 +103,7 @@ Objective completion audit:
 - Objective complete: False
 - Integration ready: True
 - Production ready: False
-- Failed requirements: production_evidence_present, production_gate_passed
+- Failed requirements: training_data_reviewed, production_evidence_present, production_gate_passed
 
 Export parity audit:
 
@@ -127,7 +127,7 @@ Production evidence audit:
 Requirements traceability:
 
 - Report: `docs/REQUIREMENTS_TRACEABILITY.md`
-- Passed: 11 / 16
+- Passed: 13 / 18
 - Production ready: False
 
 ## Requirement Audit
@@ -139,12 +139,12 @@ Requirements traceability:
 | 300 external car models collected | PASS | `data/sketchfab_cars`: 300 clean GLBs; import status has 300 tasks |
 | UE/MCP geometry-label pipeline | PASS | Geometry status: groups=52, frames=192, wheels=702 |
 | Clean Sketchfab/Objaverse labels | PASS | QA kept 152 frames / 626 wheels |
-| Dataset format/leakage audit | PASS | `outputs/production_audit/dataset_audit.json`: 12 configs, failed=0 |
-| Release package integrity | PASS | `outputs/production_audit/release_integrity.json`: 85 artifacts, total=126.342 MB |
+| Dataset format/leakage audit | FAIL | `outputs/production_audit/dataset_audit.json`: 22 configs, failed=20 |
+| Release package integrity | PASS | `outputs/production_audit/release_integrity.json`: 103 artifacts, total=196.211 MB |
 | Runtime AR contract smoke | PASS | `outputs/production_audit/runtime_contract_audit.json`: single wheels=2, batch=5 frames / 12 wheels |
-| Desktop performance audit | PASS | `outputs/production_audit/performance_audit.json`: samples=8, PT mean=41.208ms, ONNX mean=37.600ms, LiteRT smoke mean=269.127ms |
+| Desktop performance audit | PASS | `outputs/production_audit/performance_audit.json`: samples=8, PT mean=41.965ms, ONNX mean=39.092ms, LiteRT smoke mean=269.127ms |
 | Senior ML evidence matrix | PASS | `outputs/production_audit/senior_ml_audit.json`: integration_ready=True, production_ready=False |
-| Objective completion audit | PASS | `outputs/production_audit/objective_completion_audit.json`: objective_complete=False, failed=2, missing=0 |
+| Objective completion audit | PASS | `outputs/production_audit/objective_completion_audit.json`: objective_complete=False, failed=3, missing=0 |
 | Export parity diagnosis | PASS | `outputs/production_audit/export_parity_audit.json`: certified=False |
 | Calibrated export certification | PASS | `outputs/production_audit/export_certification.json`: scope=desktop_export_backend_certification_not_android_device |
 | Champion clears real-only bbox target | PASS | Real-only eval bbox mAP50=0.912 on `configs/pose_dataset_real_v1_self.yaml` |

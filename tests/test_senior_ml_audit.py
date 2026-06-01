@@ -4,6 +4,9 @@ import json
 import argparse
 
 from src.senior_ml_audit import (
+    _ar_holdout_requirement,
+    _champion_quality_requirement,
+    _dataset_audit_requirement,
     _production_evidence_requirement,
     build_audit,
     metric,
@@ -69,6 +72,115 @@ def test_production_evidence_requirement_reports_consolidated_blockers(tmp_path)
     assert "android_litert_device_validation" in req.detail
 
 
+def test_champion_quality_requirement_enforces_fp_ceiling(tmp_path):
+    report = tmp_path / "champion_eval.json"
+    report.write_text(
+        json.dumps(
+            {
+                "metrics_bbox": {"mAP50": 0.91},
+                "oks": {"mean": 0.88},
+                "rates": {
+                    "false_negative_rate": 0.06,
+                    "false_positive_rate": 0.25,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    req = _champion_quality_requirement(report)
+
+    assert req.status == "fail"
+    assert "FP=0.250<=0.150" in req.detail
+
+
+def test_champion_quality_requirement_uses_operating_point(tmp_path):
+    report = tmp_path / "champion_eval.json"
+    op = tmp_path / "operating_point_audit.json"
+    report.write_text(
+        json.dumps(
+            {
+                "metrics_bbox": {"mAP50": 0.91},
+                "oks": {"mean": 0.88},
+                "rates": {
+                    "false_negative_rate": 0.06,
+                    "false_positive_rate": 0.25,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    op.write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "selected": {
+                    "path": "outputs/production_audit/threshold_conf080_real_val.json",
+                    "conf": 0.80,
+                    "bbox_mAP50": 0.903,
+                    "oks_mean": 0.887,
+                    "false_negative_rate": 0.094,
+                    "false_positive_rate": 0.147,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    req = _champion_quality_requirement(report, operating_point_path=op)
+
+    assert req.status == "pass"
+    assert "operating_point" in req.detail
+    assert "conf=0.800" in req.detail
+
+
+def test_dataset_audit_requirement_uses_production_subset_gate(tmp_path):
+    report = tmp_path / "dataset_audit.json"
+    report.write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "gate": {
+                    "ok": True,
+                    "scope": "configured_subset",
+                    "configs": ["configs/pose_dataset_strict.yaml"],
+                    "failed_configs": [],
+                    "missing_configs": [],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    req = _dataset_audit_requirement(report)
+
+    assert req.status == "pass"
+    assert "gate_ok=True" in req.detail
+    assert "overall_ok=False" in req.detail
+
+
+def test_ar_holdout_requirement_enforces_fp_ceiling(tmp_path):
+    report = tmp_path / "holdout_eval.json"
+    report.write_text(
+        json.dumps(
+            {
+                "metrics_bbox": {"mAP50": 0.91},
+                "oks": {"mean": 0.88},
+                "rates": {
+                    "false_negative_rate": 0.06,
+                    "false_positive_rate": 0.30,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    req = _ar_holdout_requirement(report)
+
+    assert req.status == "fail"
+    assert "FP=0.300<=0.150" in req.detail
+
+
 def test_build_audit_uses_external_evidence_path_overrides(tmp_path):
     android_eval = tmp_path / "android_eval.json"
     holdout_eval = tmp_path / "holdout_eval.json"
@@ -78,7 +190,10 @@ def test_build_audit_uses_external_evidence_path_overrides(tmp_path):
     production_gate = tmp_path / "production_gate.json"
     android_eval.write_text('{"ok": true, "failures": []}', encoding="utf-8")
     holdout_eval.write_text(
-        '{"metrics_bbox":{"mAP50":0.9},"oks":{"mean":0.85},"rates":{"false_negative_rate":0.05}}',
+        (
+            '{"metrics_bbox":{"mAP50":0.9},"oks":{"mean":0.85},'
+            '"rates":{"false_negative_rate":0.05,"false_positive_rate":0.05}}'
+        ),
         encoding="utf-8",
     )
     replay_eval.write_text('{"ok": true, "failures": []}', encoding="utf-8")

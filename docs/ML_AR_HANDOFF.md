@@ -1,5 +1,13 @@
 # ML/AR Handoff Report — VSBL Wheel Fitting
 
+> **CORRECTION 2026-05-30.** Live full test suite is **1031 passed, 0 failed**
+> (not "495 passed, 1 skipped" cited below). Any PT-vs-export parity number is
+> **raw-tensor parity**, not decoded-keypoint parity; strict decoded-keypoint
+> parity is diagnostic/relaxed (see `docs/EXPORT_PARITY_AUDIT.md`). The shipped
+> champion is the YOLO11s-pose model at
+> `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt`; the MN2
+> track referenced in older sections is a proposed, untrained architecture.
+
 **Audience:** AR / Unreal client team, project lead.
 **Source repository:** VSBL repository
 **Date of hand-off:** 2026-05-21
@@ -12,7 +20,7 @@
 ML-сторона VSBL готова к интеграции с AR-клиентом по контракту, подтверждённому AR-командой 2026-05-13 и re-confirmed 2026-05-18 (Unreal follow-up).
 
 - **Schema, runtime guards, output paths, documentation:** READY.
-- **Test suite:** 495 passed, 1 skipped, 2 warnings (deprecation от `torch.onnx`, не наше).
+- **Test suite:** 1031 passed, 0 failed, 2 warnings (deprecation от `torch.onnx`, не наше). (was: «495 passed, 1 skipped» — stale 2026-05-30.)
 - **Model prediction quality:** PROVISIONAL. Текущий чекпойнт обучен на синтетике + provisional Unreal-bundle. Real-data validation ещё не завершена (см. §15).
 - **Production hand-off:** возможен для technical-integration testing на стороне AR **сейчас**; production-quality predictions требуют пунктов §15 и §18.
 
@@ -263,7 +271,7 @@ Output: `<stem>.json` per кадр (confirmed schema) + `predictions.jsonl` + `r
 ./.venv/bin/pytest -q
 ```
 
-Expected: `495 passed, 1 skipped`.
+Expected: `1031 passed, 0 failed` (stale: was `495 passed, 1 skipped`, 2026-05-30).
 
 ### Только contract tests (быстрый smoke)
 
@@ -441,7 +449,7 @@ print('OK')
 | Aspect | Status | Blocking issues | Owner of next step |
 |---|---|---|---|
 | Contract readiness | READY | None | — |
-| Code readiness | READY | None (495 tests pass) | — |
+| Code readiness | READY | None (1031 tests pass; stale: was 495) | — |
 | Documentation readiness | READY | None (annotator + AR + ML docs synced) | — |
 | Annotator readiness | READY | Updated `docs/ANNOTATION_GUIDELINES.md` is single source of truth | Annotators (next pass on `data/incoming/real_v1/`) |
 | Model quality readiness | PROVISIONAL | (a) no human-verified batch yet; (b) no eval on real data; (c) per-kp pixel error not measured | ML team + annotators |

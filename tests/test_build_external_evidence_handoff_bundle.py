@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 import zipfile
 
-from scripts.build_external_evidence_handoff_bundle import build_manifest, main, write_zip
+from scripts.build_external_evidence_handoff_bundle import (
+    DEFAULT_BUNDLE_ARTIFACTS,
+    build_manifest,
+    main,
+    write_zip,
+)
 
 
 def test_external_evidence_bundle_manifest_fails_missing_artifact(tmp_path):
@@ -58,3 +63,14 @@ def test_external_evidence_bundle_cli_manifest_has_zip_hash_aliases(tmp_path, mo
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["bundle_sha256"] == manifest["zip_sha256"]
     assert manifest["bundle_size_bytes"] == manifest["zip_size_bytes"]
+
+
+def test_external_evidence_bundle_includes_ios_coreml_artifact():
+    assert "outputs/production_audit/coreml_export/best.mlmodel" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "outputs/production_audit/coreml_certification.json" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "docs/COREML_CERTIFICATION.md" in DEFAULT_BUNDLE_ARTIFACTS
+
+
+def test_external_evidence_bundle_includes_data_readiness_decision():
+    assert "outputs/production_audit/data_readiness_decision.json" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "docs/DATA_READINESS_DECISION.md" in DEFAULT_BUNDLE_ARTIFACTS

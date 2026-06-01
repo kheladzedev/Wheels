@@ -51,14 +51,16 @@ def test_model_inventory_links_eval_reports_to_artifacts(tmp_path):
     deployment_root = tmp_path / "exports"
     deployment_root.mkdir()
     (deployment_root / "model.tflite").write_bytes(b"tflite")
+    (deployment_root / "model.mlmodel").write_bytes(b"coreml")
 
     inventory = build_inventory(runs_root, eval_root, model_path, deployment_root)
 
     assert inventory["counts"]["train_runs"] == 1
     assert inventory["counts"]["run_artifacts"] == 2
-    assert inventory["counts"]["deployment_artifacts"] == 1
-    assert inventory["counts"]["artifacts"] == 3
+    assert inventory["counts"]["deployment_artifacts"] == 2
+    assert inventory["counts"]["artifacts"] == 4
     assert inventory["counts"]["tflite_artifacts"] == 1
+    assert inventory["counts"]["coreml_artifacts"] == 1
     assert inventory["counts"]["eval_reports"] == 1
     assert inventory["runs"][0]["eval_reports"][0]["bbox_mAP50"] == 0.9
     assert inventory["champion_run"]["name"] == "wheel_a"

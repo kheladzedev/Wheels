@@ -136,6 +136,8 @@ documented JSON without any ML-side hand-holding.
 - First export target is Android (TFLite / LiteRT). ONNX/CoreML stay
   useful for debug or later platform work, but are not the first
   integration milestone.
+  - Note (2026-05-30): v1 is Android-only; iOS/CoreML is deferred (zero
+    CoreML artifacts exist today).
 - Document the JSON contract version (already in README) and freeze it.
 - Provide either a hosted endpoint or an inference wrapper script.
 - One round of end-to-end test with the AR client: their `frame_id` →

@@ -14,12 +14,12 @@ outputs/production_audit/external_evidence_handoff_bundle_manifest.json
 outputs/production_audit/external_evidence_handoff_bundle_verification.json
 ```
 
-The bundle contains the exact TFLite artifact, the Android LiteRT
-instrumentation-test harness, the AR holdout annotation writer, the AR
-replay logging harness, evidence templates, production contracts,
-validators, and the one-command evidence intake runner. It is for
-Android/AR data collection and validation handoff; it does not certify
-production by itself.
+The bundle contains the exact Android TFLite artifact, the iOS CoreML
+`.mlmodel` artifact, the Android LiteRT instrumentation-test harness, the
+AR holdout annotation writer, the AR replay logging harness, evidence
+templates, production contracts, validators, and the one-command evidence
+intake runner. It is for Android/iOS/AR integration and data collection
+handoff; it does not certify production by itself.
 
 When Android/AR returns a zip or folder with real evidence, import it
 with:
@@ -71,5 +71,5 @@ Verify the zip against the manifest:
 
 Verification also rehashes the current workspace copies of every
 manifest artifact. A handoff bundle is rejected if the zip still matches
-its manifest but any source contract, harness, template, validator, or
-TFLite artifact changed after the bundle was built.
+its manifest but any source contract, harness, template, validator,
+TFLite artifact, or CoreML artifact changed after the bundle was built.

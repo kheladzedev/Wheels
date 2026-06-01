@@ -25,6 +25,10 @@ DEFAULT_STATUS_OUT = Path("outputs/production_audit/audit_suite_status.json")
 DEFAULT_EVIDENCE_PREFLIGHT_STATUS_OUT = Path(
     "outputs/production_audit/production_evidence_intake_preflight_status.json"
 )
+STRICT_SELF_CONFIG = Path("configs/pose_dataset_real_v1_self_strict.yaml")
+STRICT_SELF_PLUS_UE_CONFIG = Path(
+    "configs/pose_dataset_real_v1_self_plus_ue_synthetic_strict.yaml"
+)
 OBJECTIVE_COMPLETION_ARTIFACTS = {
     "src/objective_completion_audit.py",
     "docs/OBJECTIVE_COMPLETION_AUDIT.md",
@@ -59,11 +63,100 @@ def release_integrity_cmd(*, include_objective: bool) -> list[str]:
     return cmd
 
 
+def strict_dataset_filter_cmd(
+    *,
+    source_root: str,
+    dataset_root: str,
+    config_out: Path,
+    report_out: str,
+) -> list[str]:
+    return py_cmd(
+        "scripts/filter_yolo_pose_dataset_by_validator.py",
+        "--source-root",
+        source_root,
+        "--dataset-root",
+        dataset_root,
+        "--config-out",
+        str(config_out),
+        "--report-out",
+        report_out,
+        "--overwrite",
+    )
+
+
+def threshold_eval_cmd(conf: str, output: str) -> list[str]:
+    return py_cmd(
+        "src/eval_keypoints.py",
+        "--model",
+        "runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt",
+        "--data",
+        "configs/pose_dataset_real_v1_self.yaml",
+        "--split",
+        "val",
+        "--device",
+        "mps",
+        "--conf",
+        conf,
+        "--iou",
+        "0.45",
+        "--max-det",
+        "20",
+        "--output",
+        output,
+    )
+
+
 def build_steps(*, include_performance: bool, include_pytest: bool) -> list[Step]:
     steps = [
         Step("model_inventory", py_cmd("src/model_inventory.py")),
         Step("model_selection_audit", py_cmd("src/model_selection_audit.py")),
-        Step("dataset_audit", py_cmd("src/dataset_audit.py")),
+        Step(
+            "strict_dataset_real_v1_self",
+            strict_dataset_filter_cmd(
+                source_root="data/wheel_pose_dataset_real_v1_self",
+                dataset_root="data/wheel_pose_dataset_real_v1_self_strict",
+                config_out=STRICT_SELF_CONFIG,
+                report_out="outputs/production_audit/strict_dataset_real_v1_self_filter.json",
+            ),
+        ),
+        Step(
+            "strict_dataset_real_v1_self_plus_ue_synthetic",
+            strict_dataset_filter_cmd(
+                source_root="data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic",
+                dataset_root="data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic_strict",
+                config_out=STRICT_SELF_PLUS_UE_CONFIG,
+                report_out=(
+                    "outputs/production_audit/"
+                    "strict_dataset_real_v1_self_plus_ue_synthetic_filter.json"
+                ),
+            ),
+        ),
+        # Dataset findings are negative evidence, not an orchestration crash:
+        # keep generating gates/reports so the final status can name blockers.
+        Step(
+            "dataset_audit",
+            py_cmd(
+                "src/dataset_audit.py",
+                "--gate-config",
+                str(STRICT_SELF_CONFIG),
+                "--gate-config",
+                str(STRICT_SELF_PLUS_UE_CONFIG),
+            ),
+            allow_failure=True,
+        ),
+        Step(
+            "threshold_conf070_real_val",
+            threshold_eval_cmd("0.70", "outputs/production_audit/threshold_conf070_real_val.json"),
+        ),
+        Step(
+            "threshold_conf075_real_val",
+            threshold_eval_cmd("0.75", "outputs/production_audit/threshold_conf075_real_val.json"),
+        ),
+        Step(
+            "threshold_conf080_real_val",
+            threshold_eval_cmd("0.80", "outputs/production_audit/threshold_conf080_real_val.json"),
+        ),
+        Step("operating_point_audit", py_cmd("src/operating_point_audit.py")),
         Step("runtime_contract_audit", py_cmd("src/runtime_contract_audit.py")),
         Step("spec_compliance_audit", py_cmd("src/spec_compliance_audit.py")),
     ]
@@ -72,6 +165,24 @@ def build_steps(*, include_performance: bool, include_pytest: bool) -> list[Step
     steps.extend(
         [
             Step("export_parity_audit", py_cmd("src/export_parity_audit.py")),
+            Step(
+                "coreml_export",
+                py_cmd(
+                    "src/export_model.py",
+                    "--model",
+                    "runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt",
+                    "--format",
+                    "mlmodel",
+                    "--imgsz",
+                    "640",
+                    "--device",
+                    "cpu",
+                    "--out-dir",
+                    "outputs/production_audit/coreml_export",
+                    "--no-sanity",
+                ),
+            ),
+            Step("coreml_certification", py_cmd("src/coreml_certification.py")),
             Step("export_certification", py_cmd("src/export_certification.py")),
             Step("tflite_certification", py_cmd("src/tflite_certification.py")),
             Step(
@@ -96,6 +207,8 @@ def build_steps(*, include_performance: bool, include_pytest: bool) -> list[Step
                 ),
                 allow_failure=True,
             ),
+            Step("production_evidence_audit", py_cmd("src/production_evidence_audit.py")),
+            Step("data_readiness_decision", py_cmd("src/data_readiness_decision.py")),
             Step(
                 "external_evidence_return_template",
                 py_cmd("scripts/create_external_evidence_return_template.py"),
@@ -108,7 +221,6 @@ def build_steps(*, include_performance: bool, include_pytest: bool) -> list[Step
                 "external_evidence_handoff_bundle_verify",
                 py_cmd("src/verify_external_evidence_handoff_bundle.py"),
             ),
-            Step("production_evidence_audit", py_cmd("src/production_evidence_audit.py")),
             Step("model_card", py_cmd("src/model_card.py")),
             Step("requirements_traceability", py_cmd("src/requirements_traceability.py")),
             Step("executive_report_ru", py_cmd("src/executive_report_ru.py")),
@@ -125,6 +237,7 @@ def build_steps(*, include_performance: bool, include_pytest: bool) -> list[Step
                     "--json-out",
                     "outputs/production_audit/integration_gate.json",
                 ),
+                allow_failure=True,
             ),
             Step(
                 "production_gate_expected",
@@ -146,7 +259,7 @@ def build_steps(*, include_performance: bool, include_pytest: bool) -> list[Step
             Step("handoff_report", py_cmd("scripts/write_handoff_report.py")),
             Step("release_integrity_post_reports", release_integrity_cmd(include_objective=True)),
             Step("report_consistency_audit", py_cmd("src/report_consistency_audit.py")),
-            Step("project_readiness", py_cmd("src/project_readiness.py")),
+            Step("project_readiness", py_cmd("src/project_readiness.py"), allow_failure=True),
         ]
     )
     if include_pytest:

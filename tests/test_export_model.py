@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from export_model import (
+    VALID_FORMATS,
     compare_detections,
     infer_one,
     pick_sample_image,
@@ -37,6 +38,11 @@ def _det(bbox, conf=0.9, kps=((10, 10), (20, 20), (30, 30))):
 
 def _result(*detections):
     return {"detections": list(detections)}
+
+
+def test_export_model_accepts_legacy_coreml_mlmodel_format():
+    assert "coreml" in VALID_FORMATS
+    assert "mlmodel" in VALID_FORMATS
 
 
 # ---------------------------------------------------------------------------

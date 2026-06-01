@@ -3,7 +3,7 @@
 ## Current Status
 
 - Car-body model pool: 300/300 clean GLBs, sketchfab=234, objaverse_fallback=66, missing=0, rejected=19
-- UnrealMCP: 127.0.0.1:55557 reachable
+- UnrealMCP: 127.0.0.1:55557 not reachable
 - Champion checkpoint: `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.pt`
 - Champion ONNX: `runs/pose/wheel_real_v1_self_plus_ue_synthetic_s/weights/best.onnx`
 - Champion eval JSON: `outputs/eval/wheel_real_v1_self_plus_ue_synthetic_s.json`
@@ -19,13 +19,13 @@
 - Real+self+UE+Sketchfab clean mixed YOLO: data/wheel_pose_dataset_real_self_ue_plus_sketchfab_clean train=354/354 val=58/58
 - Real+self+UE+Sketchfab clean eval diagnostic: not_promoted candidate oks=0.860 fn=0.310 fp=0.256 bbox_mAP50=0.680; champion oks=0.887 fn=0.286 fp=0.259 bbox_mAP50=0.697
 - Production readiness audit: docs/PRODUCTION_READINESS_AUDIT.md
-- Model inventory: 11 train runs, 30 artifacts, 20 eval reports; report `docs/MODEL_INVENTORY.md`.
+- Model inventory: 13 train runs, 35 artifacts, 29 eval reports; report `docs/MODEL_INVENTORY.md`.
 - Model selection audit: ok=True, anchor candidates=5, promotion required=0; report `docs/MODEL_SELECTION_AUDIT.md`.
 - Spec compliance audit: ok=True, failures=[]; report `docs/SPEC_COMPLIANCE_AUDIT.md`.
-- Dataset audit: ok=True, configs=12, failed=0, wheel labels=4033; report `docs/DATASET_AUDIT.md`.
-- Release package integrity: ok=True, artifacts=85, size=126.342 MB; report `docs/RELEASE_PACKAGE.md`.
+- Dataset audit: ok=False, configs=22, failed=20, wheel labels=12148; report `docs/DATASET_AUDIT.md`.
+- Release package integrity: ok=True, artifacts=103, size=196.211 MB; report `docs/RELEASE_PACKAGE.md`.
 - Runtime contract audit: ok=True, single wheels=2, batch=5 frames / 12 wheels.
-- Performance audit: ok=True, samples=8, PT mean=41.208054623893986 ms, ONNX mean=37.6004218755952 ms, LiteRT smoke mean=269.1269209004531 ms; report `docs/PERFORMANCE_AUDIT.md`.
+- Performance audit: ok=True, samples=8, PT mean=41.96455724968473 ms, ONNX mean=39.09157031216637 ms, LiteRT smoke mean=269.1269209004531 ms; report `docs/PERFORMANCE_AUDIT.md`.
 - Senior ML audit: integration_ready=True, production_ready=False, production blockers=['android_litert_device_validation', 'human_labelled_ar_device_holdout', 'ar_3d_replay_validation', 'production_evidence_audit_ready', 'production_gate']; report `docs/SENIOR_ML_AUDIT.md`.
 - Objective completion audit: objective_complete=False, integration_ready=True, production_ready=False; report `docs/OBJECTIVE_COMPLETION_AUDIT.md`.
 - Export parity audit: certified=False, ONNX categories={'count_mismatch': 0, 'bbox_drift': 1, 'keypoint_drift': 2, 'confidence_drift': 4, 'other': 0}, TFLite categories={'count_mismatch': 0, 'bbox_drift': 1, 'keypoint_drift': 2, 'confidence_drift': 4, 'other': 0}; report `docs/EXPORT_PARITY_AUDIT.md`.
@@ -33,7 +33,8 @@
 - Champion ONNX drift diagnostic: not_certified samples=14/20 max_bbox=8.497px max_kp=13.371px max_conf=0.228
 - Champion TFLite certification diagnostic: certified artifact=outputs/production_audit/tflite_export/best_float32.tflite bbox_mAP50=0.692 oks=0.888 fn=0.286 fp=0.268
 - Champion TFLite float32: `outputs/production_audit/tflite_export/best_float32.tflite`; aggregate eval `GT/pred/matched=84/82/60, OKS=0.8880997181541215, FN=0.2857142857142857, FP=0.2682926829268293, bbox mAP50=0.6923761088840539`; certified=True.
-- Integration gate: `outputs/production_audit/integration_gate.json` passes; production gate `outputs/production_audit/production_gate.json` fails by design until deployment blockers are closed.
+- Champion CoreML mlmodel: `outputs/production_audit/coreml_export/best.mlmodel`; certified=True; scope=desktop_coreml_package_not_ios_device.
+- Integration gate: PASS; production gate: FAIL failed=['production_evidence_audit_ready', 'android_litert_device_eval', 'human_ar_holdout_eval', 'ar_3d_replay_eval'].
 - Sketchfab/Objaverse pseudo-label diagnostic: data/incoming/ue_sketchfab_pseudo_conf005 images=2 annotations=2 wheels=2
 
 ## Champion Eval
@@ -92,6 +93,9 @@
 - Runtime contract audit: `outputs/production_audit/runtime_contract_audit.json`
 - Model package manifest: `outputs/production_audit/model_package_manifest.json`
 - TFLite certification report: `outputs/production_audit/tflite_certification.json`
+- CoreML artifact: `outputs/production_audit/coreml_export/best.mlmodel`
+- CoreML certification report: `outputs/production_audit/coreml_certification.json`
+- CoreML certification doc: `docs/COREML_CERTIFICATION.md`
 - LiteRT runtime smoke: `outputs/production_audit/litert_runtime_smoke.json`
 - Multi-sample export drift checker: `src/check_export_drift.py`
 - LiteRT runtime checker: `src/check_litert_runtime.py`
