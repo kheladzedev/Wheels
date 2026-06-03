@@ -6,6 +6,7 @@ import zipfile
 from scripts.build_mobile_optimization_report import (
     BaselineSpec,
     CandidateSpec,
+    DEFAULT_CANDIDATES,
     build_report,
     handoff_paths,
     materialize_candidates,
@@ -187,6 +188,12 @@ def test_mobile_optimization_zip_is_deterministic(tmp_path):
     with zipfile.ZipFile(out_a) as zf:
         assert zf.namelist() == [str(second), str(first)]
         assert zf.getinfo(str(second)).date_time == (1980, 1, 1, 0, 0, 0)
+
+
+def test_default_candidates_include_android_dynamic_range_quant():
+    ids = {candidate.id for candidate in DEFAULT_CANDIDATES}
+
+    assert "tflite_dynamic_range_int8_640" in ids
 
 
 def test_render_markdown_keeps_baseline_and_candidates_visible(tmp_path):

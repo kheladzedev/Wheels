@@ -97,6 +97,24 @@ DEFAULT_CANDIDATES = [
         note="Lower-resolution candidate; requires quality/latency comparison.",
     ),
     CandidateSpec(
+        id="tflite_dynamic_range_int8_640",
+        baseline_id="tflite_float32_640",
+        platform="android",
+        precision="dynamic_range_int8_weights",
+        source_path=DEFAULT_OUT_DIR
+        / "tflite_dynamic_range_int8_640/best_dynamic_range_quant.tflite",
+        target_path=DEFAULT_OUT_DIR
+        / "tflite_dynamic_range_int8_640/best_dynamic_range_quant.tflite",
+        input_shape=[1, 640, 640, 3],
+        output_shape=[1, 14, 8400],
+        validation_report=DEFAULT_OUT_DIR
+        / "litert_smoke_tflite_dynamic_range_int8_640.json",
+        note=(
+            "TFLite dynamic-range quantized candidate. Full INT8 export needs "
+            "more calibration images; current exporter found 58 and recommends >300."
+        ),
+    ),
+    CandidateSpec(
         id="tflite_fp16_384",
         baseline_id="tflite_float32_640",
         platform="android",
