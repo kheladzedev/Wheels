@@ -93,6 +93,7 @@ def test_materialize_candidates_copies_ready_artifacts_and_writes_reports(tmp_pa
     target = tmp_path / "out" / "best_float16.tflite"
     manifest = tmp_path / "mobile_optimization_report.json"
     markdown = tmp_path / "MOBILE_OPTIMIZATION_REPORT.md"
+    zip_out = tmp_path / "mobile_optimization_handoff.zip"
     source.parent.mkdir()
     baseline.write_bytes(b"a" * 100)
     source.write_bytes(b"b" * 25)
@@ -122,12 +123,14 @@ def test_materialize_candidates_copies_ready_artifacts_and_writes_reports(tmp_pa
         ],
         manifest_out=manifest,
         markdown_out=markdown,
+        zip_out=zip_out,
     )
 
     assert report["ok"] is True
     assert target.read_bytes() == source.read_bytes()
     assert json.loads(manifest.read_text(encoding="utf-8"))["ok"] is True
     assert "tflite_fp16_640" in markdown.read_text(encoding="utf-8")
+    assert zip_out.is_file()
 
 
 def test_handoff_paths_include_ready_candidate_and_validation_report(tmp_path):
