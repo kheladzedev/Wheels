@@ -33,6 +33,8 @@ DEFAULT_BUNDLE_ARTIFACTS = [
     "docs/ANDROID_LITERT_DEVICE_REPORT.md",
     "docs/COREML_CERTIFICATION.md",
     "docs/DATA_READINESS_DECISION.md",
+    "ios_coreml_handoff/README.md",
+    "ios_coreml_handoff/WheelsCoreMLSmoke.swift",
     "docs/AR_ML_CONTRACT.md",
     "docs/AR_MOCK_LOG_CONTRACT.md",
     "docs/PRODUCTION_EVIDENCE_CHECKLIST.md",
@@ -44,6 +46,7 @@ DEFAULT_BUNDLE_ARTIFACTS = [
     "src/import_external_evidence_drop.py",
     "src/run_production_evidence_intake.py",
     "scripts/create_external_evidence_return_template.py",
+    "scripts/build_ios_coreml_handoff.py",
 ]
 
 

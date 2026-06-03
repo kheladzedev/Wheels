@@ -69,6 +69,9 @@ def test_external_evidence_bundle_includes_ios_coreml_artifact():
     assert "outputs/production_audit/coreml_export/best.mlmodel" in DEFAULT_BUNDLE_ARTIFACTS
     assert "outputs/production_audit/coreml_certification.json" in DEFAULT_BUNDLE_ARTIFACTS
     assert "docs/COREML_CERTIFICATION.md" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "ios_coreml_handoff/README.md" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "ios_coreml_handoff/WheelsCoreMLSmoke.swift" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "scripts/build_ios_coreml_handoff.py" in DEFAULT_BUNDLE_ARTIFACTS
 
 
 def test_external_evidence_bundle_includes_data_readiness_decision():

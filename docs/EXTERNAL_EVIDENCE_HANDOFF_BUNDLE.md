@@ -15,11 +15,25 @@ outputs/production_audit/external_evidence_handoff_bundle_verification.json
 ```
 
 The bundle contains the exact Android TFLite artifact, the iOS CoreML
-`.mlmodel` artifact, the Android LiteRT instrumentation-test harness, the
+`.mlmodel` artifact, the iOS CoreML README/Swift smoke harness, the
+Android LiteRT instrumentation-test harness, the
 AR holdout annotation writer, the AR replay logging harness, evidence
 templates, production contracts, validators, and the one-command evidence
 intake runner. It is for Android/iOS/AR integration and data collection
 handoff; it does not certify production by itself.
+
+For an iOS-only package with a compiled `.mlmodelc`, run:
+
+```bash
+./.venv/bin/python scripts/build_ios_coreml_handoff.py
+```
+
+It writes:
+
+```text
+outputs/production_audit/ios_coreml_handoff.zip
+outputs/production_audit/ios_coreml_handoff_manifest.json
+```
 
 When Android/AR returns a zip or folder with real evidence, import it
 with:
