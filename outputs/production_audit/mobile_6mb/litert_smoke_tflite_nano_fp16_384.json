@@ -1,0 +1,35 @@
+{
+  "ok": true,
+  "model": "outputs/production_audit/mobile_6mb/tflite_nano_fp16_384/best_float16.tflite",
+  "image": "data/wheel_dataset/images/val/manual_sample__sample_0003.jpg",
+  "runtime": "ai_edge_litert",
+  "input": {
+    "shape": [
+      1,
+      384,
+      384,
+      3
+    ],
+    "dtype": "<class 'numpy.float32'>"
+  },
+  "outputs": [
+    {
+      "shape": [
+        1,
+        14,
+        3024
+      ],
+      "dtype": "float32",
+      "finite": true,
+      "min": -0.17375291883945465,
+      "max": 1.0562742948532104,
+      "mean": 0.40005090832710266
+    }
+  ],
+  "latency_ms": {
+    "runs": 5,
+    "mean": 28.84072499946342,
+    "p50": 28.90049999768962,
+    "p95": 28.978058799839346
+  }
+}

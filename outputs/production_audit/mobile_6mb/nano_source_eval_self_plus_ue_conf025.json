@@ -1,0 +1,439 @@
+{
+  "model": "runs/pose/runs/pose/wheel_real_v1_soft_n_aug/weights/best.pt",
+  "data": "configs/pose_dataset_real_v1_self_plus_ue_synthetic.yaml",
+  "split": "val",
+  "device": "cpu",
+  "thresholds": {
+    "conf": 0.25,
+    "iou_match": 0.5,
+    "iou_nms": 0.45,
+    "max_det": 20
+  },
+  "sigmas": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "sigmas_note": "Per-keypoint OKS sigmas. Default 0.10 picks a tolerance radius k*s ≈ 6 px on a 60 px wheel — a few-pixel error produces a usable OKS instead of saturating at 0. Revisit once we have a real-data annotation-noise floor; override with --sigma.",
+  "counts": {
+    "gt_wheels": 84,
+    "pred_wheels_above_conf": 65,
+    "matched": 55,
+    "false_negatives": 29,
+    "false_positives": 10,
+    "images": 58
+  },
+  "per_keypoint_pixel_error": {
+    "a": {
+      "median": 6.708327538941596,
+      "mean": 8.358035964059102,
+      "p95": 17.60124013095038,
+      "p99": 20.800190172907186,
+      "n": 55
+    },
+    "b": {
+      "median": 9.43163423512866,
+      "mean": 10.408391988761148,
+      "p95": 22.771988124581306,
+      "p99": 30.130856403151743,
+      "n": 55
+    },
+    "c_disc_bottom": {
+      "median": 7.859209779718623,
+      "mean": 8.97171236635623,
+      "p95": 18.854787072739217,
+      "p99": 20.20040938638366,
+      "n": 55
+    }
+  },
+  "oks": {
+    "mean": 0.8664586733881109,
+    "n": 55
+  },
+  "rates": {
+    "false_negative_rate": 0.34523809523809523,
+    "false_positive_rate": 0.15384615384615385
+  },
+  "metrics_bbox": {
+    "mAP50": 0.6713273131425397,
+    "mAP50_95": 0.5698416098155352
+  },
+  "slices": {
+    "by_bbox_area": {
+      "small": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "medium": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": 3.034457520607941,
+            "mean": 3.2804340771654683,
+            "p95": 5.135128785924682,
+            "p99": 5.338035820997867,
+            "n": 4
+          },
+          "b": {
+            "median": 3.716459272238069,
+            "mean": 3.731676656988975,
+            "p95": 6.148262095534879,
+            "p99": 6.478516446530126,
+            "n": 4
+          },
+          "c_disc_bottom": {
+            "median": 5.141469268646997,
+            "mean": 5.108262817203904,
+            "p95": 6.525767108272408,
+            "p99": 6.632012169057872,
+            "n": 4
+          }
+        },
+        "oks": {
+          "mean": 0.8134461056994572,
+          "n": 4
+        },
+        "n_matched": 4
+      },
+      "large": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": 8.057019872713376,
+            "mean": 8.756279249305662,
+            "p95": 17.81426333058272,
+            "p99": 20.896155324594417,
+            "n": 51
+          },
+          "b": {
+            "median": 9.69050517705365,
+            "mean": 10.932055936351121,
+            "p95": 23.5128302275783,
+            "p99": 30.39938320249706,
+            "n": 51
+          },
+          "c_disc_bottom": {
+            "median": 8.340740538587538,
+            "mean": 9.274728017270139,
+            "p95": 18.887839538669063,
+            "p99": 20.2005998033095,
+            "n": 51
+          }
+        },
+        "oks": {
+          "mean": 0.8706165218342798,
+          "n": 51
+        },
+        "n_matched": 51
+      }
+    },
+    "by_occlusion": {
+      "with_occlusion": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "b": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          },
+          "c_disc_bottom": {
+            "median": null,
+            "mean": null,
+            "p95": null,
+            "p99": null,
+            "n": 0
+          }
+        },
+        "oks": {
+          "mean": null,
+          "n": 0
+        },
+        "n_matched": 0
+      },
+      "without_occlusion": {
+        "per_keypoint_pixel_error": {
+          "a": {
+            "median": 6.708327538941596,
+            "mean": 8.358035964059102,
+            "p95": 17.60124013095038,
+            "p99": 20.800190172907186,
+            "n": 55
+          },
+          "b": {
+            "median": 9.43163423512866,
+            "mean": 10.408391988761148,
+            "p95": 22.771988124581306,
+            "p99": 30.130856403151743,
+            "n": 55
+          },
+          "c_disc_bottom": {
+            "median": 7.859209779718623,
+            "mean": 8.97171236635623,
+            "p95": 18.854787072739217,
+            "p99": 20.20040938638366,
+            "n": 55
+          }
+        },
+        "oks": {
+          "mean": 0.8664586733881109,
+          "n": 55
+        },
+        "n_matched": 55
+      }
+    }
+  },
+  "failure_samples": [
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0090_Honda_NSX_Tribute_by_Italdesign_front_three-quarter_view_at_Osaka_Auto_Messe_cropped.jpg",
+      "score_px": 23.017656304889396,
+      "oks": 0.657328556187335,
+      "per_keypoint_px": [
+        18.346821329663566,
+        33.755968194313574,
+        16.950179390691044
+      ],
+      "gt_bbox_xyxy": [
+        317.98016000000007,
+        337.3531945,
+        510.68416,
+        666.6868355
+      ],
+      "pred_bbox_xyxy": [
+        315.82489013671875,
+        330.6263122558594,
+        489.71136474609375,
+        670.6695556640625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0225_1989_Mitsubishi_Colt_RE_XL_5-door_hatchback_14976570329.jpg",
+      "score_px": 19.543620622682425,
+      "oks": 0.7447402757010017,
+      "per_keypoint_px": [
+        19.696590928503966,
+        25.364935485070745,
+        13.569335454472569
+      ],
+      "gt_bbox_xyxy": [
+        705.32416,
+        395.11116000000004,
+        962.63872,
+        653.56596
+      ],
+      "pred_bbox_xyxy": [
+        705.5733032226562,
+        378.1133117675781,
+        969.9957885742188,
+        656.7431640625
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0199_1954_Chevrolet_Bel_Air_4-Door_Sedan_front_left_2022_Ellwood_City_Fall_Fest_Car_Cruise.jpg",
+      "score_px": 19.43355372518586,
+      "oks": 0.6643156168217031,
+      "per_keypoint_px": [
+        22.095719720684873,
+        17.399733081028252,
+        18.80520837384445
+      ],
+      "gt_bbox_xyxy": [
+        540.1465599999999,
+        459.35956899999996,
+        722.3968,
+        713.098943
+      ],
+      "pred_bbox_xyxy": [
+        525.001220703125,
+        454.46636962890625,
+        724.20703125,
+        715.9074096679688
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0205_Gilmore_Car_Museum_1928_Hudson_Convertible_Sedan_34682131475.jpg",
+      "score_px": 18.8483594333852,
+      "oks": 0.7160803773727444,
+      "per_keypoint_px": [
+        17.122271157759915,
+        20.452336438902012,
+        18.97047070349367
+      ],
+      "gt_bbox_xyxy": [
+        538.8633600000001,
+        548.5314595,
+        748.22272,
+        803.0350985
+      ],
+      "pred_bbox_xyxy": [
+        516.54443359375,
+        550.1182861328125,
+        744.16015625,
+        806.3636474609375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0057_Cream_Citro_n_Burton_three-quarter_front_view.jpg",
+      "score_px": 18.384530740660775,
+      "oks": 0.7189679514109049,
+      "per_keypoint_px": [
+        17.281705331501875,
+        27.042798210680544,
+        10.829088679799908
+      ],
+      "gt_bbox_xyxy": [
+        744.9228800000001,
+        376.607264,
+        908.33536,
+        703.6981840000001
+      ],
+      "pred_bbox_xyxy": [
+        738.9830322265625,
+        379.1644592285156,
+        920.630615234375,
+        708.8712158203125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0184_Convertible_Modified_Vintage_Sedan_Car_2.jpg",
+      "score_px": 15.063674671374967,
+      "oks": 0.7659120935842307,
+      "per_keypoint_px": [
+        17.178637365011074,
+        10.534357413250417,
+        17.47802923586341
+      ],
+      "gt_bbox_xyxy": [
+        761.3472,
+        575.0742604999999,
+        926.9369600000001,
+        838.3228555
+      ],
+      "pred_bbox_xyxy": [
+        749.8720703125,
+        570.2470703125,
+        930.80322265625,
+        839.830078125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0060_Land_Rover_Range_Rover_Evoque_Convertible_2016_-_front_three-quarter.jpg",
+      "score_px": 15.024797391099538,
+      "oks": 0.8339373472241921,
+      "per_keypoint_px": [
+        15.126366293170463,
+        16.742490160719875,
+        13.205535719408275
+      ],
+      "gt_bbox_xyxy": [
+        429.03423999999995,
+        501.884589,
+        639.8886399999999,
+        798.415671
+      ],
+      "pred_bbox_xyxy": [
+        418.9478759765625,
+        500.7757568359375,
+        635.71630859375,
+        801.8760986328125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0344_2020_Toyota_Camry_S-Edition_front.jpg",
+      "score_px": 13.864371172849706,
+      "oks": 0.8219201865159439,
+      "per_keypoint_px": [
+        11.24742992039048,
+        16.57933510006107,
+        13.76634849809757
+      ],
+      "gt_bbox_xyxy": [
+        434.93760000000003,
+        366.904552,
+        607.1744000000001,
+        655.724888
+      ],
+      "pred_bbox_xyxy": [
+        420.13818359375,
+        360.1648864746094,
+        620.64697265625,
+        660.8656005859375
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0290_BMW_5_SERIES_LWB_SEDAN_BMW_G38_China.jpg",
+      "score_px": 13.78166659068904,
+      "oks": 0.7321331426703909,
+      "per_keypoint_px": [
+        13.859862487168485,
+        7.282157270016092,
+        20.20298001488254
+      ],
+      "gt_bbox_xyxy": [
+        543.83232,
+        433.822287,
+        694.2323200000001,
+        648.8600650000001
+      ],
+      "pred_bbox_xyxy": [
+        532.8624267578125,
+        433.3815612792969,
+        692.6241455078125,
+        650.921142578125
+      ]
+    },
+    {
+      "image": "/Users/codefactory/Desktop/ML/VSBL/Wheels/data/wheel_pose_dataset_real_v1_self_plus_ue_synthetic/images/val/real_v1_self__wmc_0316_1994-1995_Toyota_Camry_Vienta_VDV10_CSX_sedan_02.jpg",
+      "score_px": 13.725711286042127,
+      "oks": 0.7820474640171615,
+      "per_keypoint_px": [
+        13.13989373421039,
+        7.839020532179533,
+        20.198219591736464
+      ],
+      "gt_bbox_xyxy": [
+        582.31744,
+        315.43374,
+        755.12384,
+        552.769712
+      ],
+      "pred_bbox_xyxy": [
+        576.1484375,
+        320.949462890625,
+        755.22412109375,
+        551.0139770507812
+      ]
+    }
+  ]
+}

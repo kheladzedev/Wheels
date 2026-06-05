@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "ok": true,
+  "scope": "mobile_6mb_handoff_candidates_not_production_promotion",
+  "policy": {
+    "max_model_size_mb": 6.0,
+    "max_input_size": [
+      390,
+      390
+    ],
+    "actual_input_size": [
+      384,
+      384
+    ],
+    "note": "These are mobile-small candidates. They satisfy file-size and input-size constraints but still need quality and target-device validation."
+  },
+  "failures": [],
+  "artifacts": [
+    {
+      "path": "outputs/production_audit/mobile_6mb/tflite_nano_fp16_384/best_float16.tflite",
+      "name": "best_float16.tflite",
+      "platform": "android",
+      "role": "model",
+      "exists": true,
+      "size_bytes": 5480359,
+      "size_mb": 5.226,
+      "max_size_mb": 6.0,
+      "within_size_limit": true,
+      "sha256": "9ad5e50f330807e47ce29b8ddeea56a22fa14563c903889d6e266eb9377fb25e",
+      "metadata": {
+        "format": "tflite",
+        "precision": "fp16",
+        "input_shape": [
+          1,
+          384,
+          384,
+          3
+        ],
+        "input_dtype": "float32",
+        "output_shape": [
+          1,
+          14,
+          3024
+        ],
+        "output_dtype": "float32",
+        "source_checkpoint": "runs/pose/runs/pose/wheel_real_v1_soft_n_aug/weights/best.pt"
+      }
+    },
+    {
+      "path": "outputs/production_audit/mobile_6mb/litert_smoke_tflite_nano_fp16_384.json",
+      "name": "litert_smoke_tflite_nano_fp16_384.json",
+      "platform": "android",
+      "role": "validation",
+      "exists": true,
+      "size_bytes": 705,
+      "size_mb": 0.001,
+      "max_size_mb": null,
+      "within_size_limit": null,
+      "sha256": "83a02b6e46f0fdd2b092ff8cd592f4b0c03ea64f4926efc5bd3c46fc39dc809e",
+      "metadata": {}
+    },
+    {
+      "path": "outputs/production_audit/mobile_6mb/nano_source_eval_self_plus_ue_conf025.json",
+      "name": "nano_source_eval_self_plus_ue_conf025.json",
+      "platform": "shared",
+      "role": "quality_reference",
+      "exists": true,
+      "size_bytes": 12099,
+      "size_mb": 0.012,
+      "max_size_mb": null,
+      "within_size_limit": null,
+      "sha256": "86eac170d13512c30d0cab231eb6d1eba0fd27b494c92275b41265d4632131b4",
+      "metadata": {
+        "model": "runs/pose/runs/pose/wheel_real_v1_soft_n_aug/weights/best.pt",
+        "data": "configs/pose_dataset_real_v1_self_plus_ue_synthetic.yaml",
+        "scope": "source_checkpoint_eval_not_exact_export_runtime_parity",
+        "conf": 0.25,
+        "images": 58,
+        "gt_wheels": 84,
+        "matched": 55,
+        "mAP50": 0.671,
+        "mAP50_95": 0.57,
+        "oks_mean": 0.866,
+        "false_negative_rate": 0.345,
+        "false_positive_rate": 0.154
+      }
+    },
+    {
+      "path": "outputs/production_audit/mobile_6mb/coreml_nano_int8_384/best_int8.mlmodel",
+      "name": "best_int8.mlmodel",
+      "platform": "ios",
+      "role": "model",
+      "exists": true,
+      "size_bytes": 2760347,
+      "size_mb": 2.632,
+      "max_size_mb": 6.0,
+      "within_size_limit": true,
+      "sha256": "546c4838597c7c9cdeb808990e160be38974dba327c004704752a0597a89e923",
+      "metadata": {
+        "format": "coreml_mlmodel",
+        "precision": "int8_linear_weights",
+        "input_name": "image",
+        "input_size": [
+          384,
+          384
+        ],
+        "output_name": "var_1344",
+        "logical_output_shape": [
+          1,
+          14,
+          3024
+        ],
+        "source_checkpoint": "runs/pose/runs/pose/wheel_real_v1_soft_n_aug/weights/best.pt"
+      }
+    },
+    {
+      "path": "outputs/production_audit/mobile_6mb/coreml_nano_int8_384/coreml_certification.json",
+      "name": "coreml_certification.json",
+      "platform": "ios",
+      "role": "validation",
+      "exists": true,
+      "size_bytes": 1437,
+      "size_mb": 0.001,
+      "max_size_mb": null,
+      "within_size_limit": null,
+      "sha256": "36413449d122a73d979066916e475f50bfa7163669a90a4aa2d3e0ce8694e688",
+      "metadata": {}
+    },
+    {
+      "path": "outputs/production_audit/mobile_6mb/coreml_nano_linear4_384/best_linear4.mlmodel",
+      "name": "best_linear4.mlmodel",
+      "platform": "ios",
+      "role": "model",
+      "exists": true,
+      "size_bytes": 1425528,
+      "size_mb": 1.359,
+      "max_size_mb": 6.0,
+      "within_size_limit": true,
+      "sha256": "6fd51d66bef9b3e98bee7c544461975be573730bf7c64f86ddbcc745977d1eb2",
+      "metadata": {
+        "format": "coreml_mlmodel",
+        "precision": "linear_4bit_weights",
+        "input_name": "image",
+        "input_size": [
+          384,
+          384
+        ],
+        "output_name": "var_1344",
+        "logical_output_shape": [
+          1,
+          14,
+          3024
+        ],
+        "source_checkpoint": "runs/pose/runs/pose/wheel_real_v1_soft_n_aug/weights/best.pt"
+      }
+    },
+    {
+      "path": "outputs/production_audit/mobile_6mb/coreml_nano_linear4_384/coreml_certification.json",
+      "name": "coreml_certification.json",
+      "platform": "ios",
+      "role": "validation",
+      "exists": true,
+      "size_bytes": 1443,
+      "size_mb": 0.001,
+      "max_size_mb": null,
+      "within_size_limit": null,
+      "sha256": "61c75ab4350fdd7298b92d0ee47dcbe756de8bde18cae9219f2aeda399010e31",
+      "metadata": {}
+    }
+  ],
+  "zip": "outputs/production_audit/mobile_6mb/mobile_6mb_handoff.zip",
+  "zip_size_bytes": 8637534,
+  "zip_sha256": "2839f19c7ac236f3d2f274fdca86bc237026761719061672c50172f652e03125",
+  "platform_zips": {
+    "android": {
+      "path": "outputs/production_audit/mobile_6mb/android_6mb_handoff.zip",
+      "size_bytes": 4968257,
+      "sha256": "8f7ae3d5d540557ff72fa7cf53e80a4764604c5fda2932d00a5cae0ddc068266"
+    },
+    "ios": {
+      "path": "outputs/production_audit/mobile_6mb/ios_6mb_handoff.zip",
+      "size_bytes": 3675390,
+      "sha256": "788a85fe164f6ec588235e9b7d69dab51007f90d1bee515d79a2bf7cd72e10b8"
+    }
+  }
+}

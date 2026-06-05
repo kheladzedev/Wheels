@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "certified": true,
+  "status": "certified",
+  "scope": "desktop_coreml_package_not_ios_device",
+  "format": "coreml_mlmodel_neuralnetwork",
+  "artifact": {
+    "path": "outputs/production_audit/mobile_6mb/coreml_nano_int8_384/best_int8.mlmodel",
+    "exists": true,
+    "size_bytes": 2760347,
+    "size_mb": 2.632,
+    "sha256": "546c4838597c7c9cdeb808990e160be38974dba327c004704752a0597a89e923"
+  },
+  "pytorch_reference": {
+    "path": "runs/pose/runs/pose/wheel_real_v1_soft_n_aug/weights/best.pt",
+    "exists": true,
+    "size_bytes": 5643912,
+    "size_mb": 5.382,
+    "sha256": "41387bf4124f8d13a058780bb8610b3a2a4d13e8a9a7831bddc5c9783e38d304"
+  },
+  "spec": {
+    "specification_version": 4,
+    "inputs": [
+      {
+        "name": "image",
+        "kind": "image",
+        "width": 384,
+        "height": 384
+      }
+    ],
+    "outputs": [
+      {
+        "name": "var_1344",
+        "kind": "multiArrayType",
+        "shape": []
+      }
+    ]
+  },
+  "policy": {
+    "expected_input_size": 384,
+    "runtime_note": "This certifies the CoreML package/spec on desktop. iOS app/device latency, memory, and end-to-end output validation remain external evidence.",
+    "mlpackage_note": "ML Program .mlpackage export is blocked in the current Python 3.14 environment because coremltools cannot load BlobWriter. The .mlmodel neuralnetwork export is the iOS test handoff artifact."
+  },
+  "failures": []
+}
