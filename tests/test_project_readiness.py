@@ -286,6 +286,7 @@ def test_collect_checks_includes_handoff_orchestration(monkeypatch):
     assert "champion_tflite_certification_diagnostic" in names
     assert "ue_sketchfab_pseudo_yield_diagnostic" in names
     assert "ar_replay_validator" in names
+    assert "ar_replay_metric_scorer" in names
     assert "ar_holdout_provenance_template" in names
     assert "ar_holdout_harness_doc" in names
     assert "ar_holdout_harness_writer" in names

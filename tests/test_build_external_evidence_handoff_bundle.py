@@ -77,3 +77,9 @@ def test_external_evidence_bundle_includes_ios_coreml_artifact():
 def test_external_evidence_bundle_includes_data_readiness_decision():
     assert "outputs/production_audit/data_readiness_decision.json" in DEFAULT_BUNDLE_ARTIFACTS
     assert "docs/DATA_READINESS_DECISION.md" in DEFAULT_BUNDLE_ARTIFACTS
+
+
+def test_external_evidence_bundle_includes_ar_replay_metric():
+    assert "src/validate_ar_replay.py" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "src/eval_ar_replay_metric.py" in DEFAULT_BUNDLE_ARTIFACTS
+    assert "docs/AR_REPLAY_METRIC_PLAN.md" in DEFAULT_BUNDLE_ARTIFACTS

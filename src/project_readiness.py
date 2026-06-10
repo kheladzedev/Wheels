@@ -621,6 +621,10 @@ def collect_checks(args: argparse.Namespace) -> list[Check]:
             Path("src/validate_ar_replay.py"),
         ),
         file_check(
+            "ar_replay_metric_scorer",
+            Path("src/eval_ar_replay_metric.py"),
+        ),
+        file_check(
             "ar_holdout_evaluator",
             Path("src/evaluate_ar_holdout.py"),
         ),

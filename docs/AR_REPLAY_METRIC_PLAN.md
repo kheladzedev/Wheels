@@ -1,17 +1,22 @@
 # AR-Replay Metric Plan
 
 Forward-looking design for a 3D-aware evaluation layer on top of the
-current 2D YOLO-pose pipeline. This document is a **plan**, not an
-implemented system. Nothing here is part of the AR / ML contract, the
-training gate, or the production-readiness audit yet.
+current 2D YOLO-pose pipeline. Stage 3 now has a first offline scorer,
+but this remains an evaluation layer outside the AR / ML contract and
+outside the training loop.
 
-Status as of 2026-05-28:
+Status as of 2026-06-10:
 
 - 2D pipeline is the current production target (`docs/AR_ML_CONTRACT.md`,
   `tests/test_ar_contract.py`).
 - AR-side JSONL replay log is already specified
   (`docs/AR_MOCK_LOG_CONTRACT.md`) and gated by a plumbing validator
   (`src/validate_ar_replay.py`).
+- Offline AR replay scoring is implemented in
+  `src/eval_ar_replay_metric.py`: it groups valid replay observations
+  by `session_id` + wheel identity and reports inlier ratio, residuals,
+  recovered-plane stability, plane verticality, C-projection stability,
+  and a per-frame CSV for debugging.
 - Current blocker for further training: clean export with real
   `WheelBBox` / `BBox` (see `docs/EXPORT_CERTIFICATION.md`,
   `docs/EXPORT_PARITY_AUDIT.md`). No training, no full 3D loss, and no
@@ -48,7 +53,7 @@ auxiliary loss touches training. The reasons are spelled out in §6.
 |---|---|---|---|---|
 | **1** | 2D baseline: bbox + A / B / C in pixel space, confirmed AR JSON contract | implemented | ML | `tests/test_ar_contract.py` green; `src/eval_keypoints.py` pixel-error metrics on real-only val pass the documented thresholds |
 | **2** | Floor / ground mask validation for A and B at dataset / eval time | not started | ML | A and B from drafts / labels fall inside a floor mask for ≥ X % of annotated wheels; failing rows are surfaced (not silently dropped) |
-| **3** | Offline AR-replay metric over `ar_replay.jsonl` sessions | not started | ML (consumer), AR (producer of the log — already specified) | Metric report at `outputs/ar_replay/<session_id>_metric.json` with the metrics in §5; reproducible from a fixed `ar_replay.jsonl` |
+| **3** | Offline AR-replay metric over `ar_replay.jsonl` sessions | implemented first scorer | ML (consumer), AR (producer of the log — already specified) | Metric report + per-frame CSV from `src/eval_ar_replay_metric.py`; informational until real-device batches define thresholds |
 | **4** | Optional 3D-aware auxiliary training loss | deferred | ML | Only after Stage 3 stabilises and a 3D error budget is agreed with the AR team (§9 of `docs/OPEN_QUESTIONS_AR_SPEC.md` is still open) |
 
 Each stage strictly subsumes the previous one. None of the stages
@@ -133,11 +138,24 @@ Outputs:
 - `outputs/ar_replay/<session_id>_per_frame.csv` — per-observation
   residuals and inlier flags for debugging.
 
+Current CLI:
+
+```bash
+./.venv/bin/python src/eval_ar_replay_metric.py \
+  --jsonl data/incoming/ar_3d_replay/ar_replay.jsonl \
+  --out outputs/ar_replay/ar_replay_metric.json \
+  --per-frame-csv outputs/ar_replay/ar_replay_metric_per_frame.csv
+```
+
+Run `src/validate_ar_replay.py` first. The validator rejects malformed
+or non-production logs; `src/eval_ar_replay_metric.py` scores geometry
+quality after the log is valid.
+
 Position in the codebase:
 
-- New script `src/eval_ar_replay_metric.py`. Consumes the validated
-  JSONL. Pure stdlib + numpy. No model weights, no inference, no
-  schema changes.
+- Script `src/eval_ar_replay_metric.py`. Consumes the validated JSONL.
+  Pure stdlib + numpy. No model weights, no inference, no schema
+  changes.
 - The plumbing validator (`src/validate_ar_replay.py`) stays the gate
   on log shape and evidence completeness; the new script is the
   **quality scorer** on top of a log that has already passed the

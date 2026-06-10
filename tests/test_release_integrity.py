@@ -82,6 +82,12 @@ def test_release_integrity_includes_data_readiness_decision_artifacts():
     assert "docs/DATA_READINESS_DECISION.md" in DEFAULT_REQUIRED_ARTIFACTS
 
 
+def test_release_integrity_includes_ar_replay_metric_artifacts():
+    assert "src/validate_ar_replay.py" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "src/eval_ar_replay_metric.py" in DEFAULT_REQUIRED_ARTIFACTS
+    assert "docs/AR_REPLAY_METRIC_PLAN.md" in DEFAULT_REQUIRED_ARTIFACTS
+
+
 def test_release_integrity_rejects_self_referential_artifacts(tmp_path):
     release_json = tmp_path / "outputs" / "production_audit" / "release_integrity.json"
     release_json.parent.mkdir(parents=True)

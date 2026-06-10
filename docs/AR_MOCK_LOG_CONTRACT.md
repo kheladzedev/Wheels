@@ -93,6 +93,21 @@ non-placeholder `capture_app_version`, and a real `capture_date_utc`; use
 Thresholds are CLI flags, but any relaxed thresholds must be recorded in
 the generated JSON.
 
+After the log passes validation, run the offline geometry scorer to
+measure floor/RANSAC stability:
+
+```bash
+./.venv/bin/python src/eval_ar_replay_metric.py \
+  --jsonl path/to/ar_replay.jsonl \
+  --out outputs/ar_replay/ar_replay_metric.json \
+  --per-frame-csv outputs/ar_replay/ar_replay_metric_per_frame.csv
+```
+
+This scorer is informational until real-device batches define the
+production thresholds. It reports per-session/per-wheel inlier ratio,
+residual distribution, recovered-plane stability, plane verticality,
+C-projection stability, and per-frame debug rows.
+
 Template:
 
 ```bash
