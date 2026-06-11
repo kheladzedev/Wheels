@@ -17,11 +17,15 @@ import csv
 import hashlib
 import json
 import math
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.validate_ar_replay import load_jsonl, validate_observation
 
