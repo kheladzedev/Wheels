@@ -1,0 +1,27 @@
+{
+  "duration_seconds": 0.046,
+  "input_name": "images",
+  "input_shape": [
+    1,
+    3,
+    384,
+    384
+  ],
+  "latency_ms": {
+    "avg": 6.736,
+    "max": 9.186,
+    "min": 5.478
+  },
+  "model": "outputs/production_audit/mobile_onnx/best_mobile_384.onnx",
+  "ok": true,
+  "output_shapes": {
+    "output0": [
+      1,
+      14,
+      3024
+    ]
+  },
+  "provider": "CPUExecutionProvider",
+  "runs": 3,
+  "schema_version": 1
+}
