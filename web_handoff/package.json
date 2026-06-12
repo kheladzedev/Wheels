@@ -1,0 +1,12 @@
+{
+  "name": "wheels-web-floor-handoff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke_onnxruntime_web.mjs ../outputs/web_floor_network/handoff/web_floor_multitask.onnx ../outputs/web_floor_network/handoff/manifest.json ../outputs/web_floor_network/handoff/node_smoke_report.json"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.26.0"
+  }
+}

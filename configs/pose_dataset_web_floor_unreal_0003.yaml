@@ -1,0 +1,7 @@
+path: /Users/codefactory/Desktop/ML/VSBL/Wheels/data/web_floor_dataset_unreal_0003
+manifest: manifest.json
+image_size:
+- 512
+- 512
+fixture_only: false
+runtime_scope: single_forward_no_depth_no_ransac

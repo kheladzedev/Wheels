@@ -1,0 +1,151 @@
+{
+  "schema": "web_floor_fixture_v1",
+  "fixture_only": true,
+  "runtime_scope": "single_forward_no_depth_no_ransac",
+  "notes": "Synthetic fixture for tests only; not production training data.",
+  "items": [
+    {
+      "frame_id": "fixture-wheel-floor-0001",
+      "image": "images/wheel_floor.png",
+      "floor": {
+        "pitch": 0.035,
+        "roll": -0.012,
+        "distance": 1.55,
+        "distance_mode": "scale_relative",
+        "fov_mode": "unknown"
+      },
+      "wheels": [
+        {
+          "bbox_xyxy": [
+            34,
+            34,
+            86,
+            106
+          ],
+          "confidence": 0.94,
+          "points": {
+            "a": [
+              42,
+              98
+            ],
+            "b": [
+              78,
+              99
+            ],
+            "c_disc_bottom": [
+              60,
+              76
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "frame_id": "fixture-multi-wheel-0002",
+      "image": "images/multi_wheel.png",
+      "floor": {
+        "pitch": 0.055,
+        "roll": 0.018,
+        "distance": 1.82,
+        "distance_mode": "scale_relative",
+        "fov_mode": "unknown"
+      },
+      "wheels": [
+        {
+          "bbox_xyxy": [
+            14,
+            42,
+            54,
+            106
+          ],
+          "confidence": 0.88,
+          "points": {
+            "a": [
+              20,
+              98
+            ],
+            "b": [
+              49,
+              99
+            ],
+            "c_disc_bottom": [
+              34,
+              78
+            ]
+          }
+        },
+        {
+          "bbox_xyxy": [
+            75,
+            39,
+            118,
+            104
+          ],
+          "confidence": 0.86,
+          "points": {
+            "a": [
+              80,
+              96
+            ],
+            "b": [
+              112,
+              97
+            ],
+            "c_disc_bottom": [
+              96,
+              76
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "frame_id": "fixture-empty-0003",
+      "image": "images/empty_no_wheel.png",
+      "floor": {
+        "pitch": 0.02,
+        "roll": 0.0,
+        "distance": 1.4,
+        "distance_mode": "scale_relative",
+        "fov_mode": "unknown"
+      },
+      "wheels": []
+    },
+    {
+      "frame_id": "fixture-normalized-distance-0004",
+      "image": "images/normalized_distance.png",
+      "floor": {
+        "pitch": -0.025,
+        "roll": 0.01,
+        "distance": 0.62,
+        "distance_mode": "normalized",
+        "fov_mode": "fixed"
+      },
+      "wheels": [
+        {
+          "bbox_xyxy": [
+            45,
+            35,
+            102,
+            109
+          ],
+          "confidence": 0.9,
+          "points": {
+            "a": [
+              52,
+              100
+            ],
+            "b": [
+              94,
+              101
+            ],
+            "c_disc_bottom": [
+              73,
+              79
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

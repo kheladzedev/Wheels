@@ -1,0 +1,13 @@
+path: tests/fixtures/web_floor
+manifest: manifest.json
+image_size:
+- 128
+- 128
+fixture_only: true
+runtime_scope: single_forward_no_depth_no_ransac
+names:
+  0: wheel
+point_names:
+- a
+- b
+- c_disc_bottom

@@ -1,0 +1,11 @@
+# Template config for the production web floor dataset.
+#
+# Copy this file to configs/pose_dataset_web_floor_real_vN.yaml once real
+# web/phone data lands. The dataset root must contain manifest.json in the
+# docs/WEB_FLOOR_REAL_DATA_INTAKE.md shape.
+
+path: data/web_floor_real_v1
+manifest: manifest.json
+image_size: [512, 512]
+fixture_only: false
+runtime_scope: single_forward_no_depth_no_ransac
