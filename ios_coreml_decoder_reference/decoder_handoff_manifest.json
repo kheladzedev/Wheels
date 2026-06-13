@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "artifact": "WheelsPoseDecoder.swift",
+  "scope": "ios_coreml_reference_postprocess",
+  "status": "integration_reference_not_production_certification",
+  "model": {
+    "recommended_file": "best_int8.mlmodel",
+    "input_name": "image",
+    "input_size": [384, 384],
+    "output_name": "var_1344",
+    "logical_output_shape": [1, 14, 3024],
+    "channel_layout": {
+      "0": "bbox_center_x",
+      "1": "bbox_center_y",
+      "2": "bbox_width",
+      "3": "bbox_height",
+      "4": "wheel_confidence",
+      "5": "a_x",
+      "6": "a_y",
+      "7": "a_score",
+      "8": "b_x",
+      "9": "b_y",
+      "10": "b_score",
+      "11": "c_disc_bottom_x",
+      "12": "c_disc_bottom_y",
+      "13": "c_disc_bottom_score"
+    }
+  },
+  "decoder": {
+    "language": "Swift",
+    "minimum_dependencies": ["Foundation", "CoreGraphics", "CoreML"],
+    "default_confidence_threshold": 0.25,
+    "debug_confidence_threshold": 0.05,
+    "default_iou_threshold": 0.45,
+    "max_detections": 20,
+    "resize_modes": ["stretch", "scaleFitLetterbox", "centerCrop"]
+  },
+  "ar_contract": {
+    "payload_shape": {
+      "frame_id": "string",
+      "wheels": [
+        {
+          "bbox_xyxy": ["x1", "y1", "x2", "y2"],
+          "confidence": "float",
+          "points": {
+            "a": ["x", "y"],
+            "b": ["x", "y"],
+            "c_disc_bottom": ["x", "y"]
+          }
+        }
+      ]
+    },
+    "not_in_decoder": ["3d", "raycast", "plane", "ransac", "tracking"]
+  }
+}
